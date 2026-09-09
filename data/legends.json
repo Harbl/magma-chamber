@@ -1,0 +1,443 @@
+[
+  {
+    "name": "Ahri - Nine-Tailed Fox",
+    "domains": [
+      "Calm",
+      "Mind"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/fbce641f5e4d8cdf2956e8ead5884b6cd3ccd90d-744x1040.png?accountingTag=RB"
+  },
+  {
+    "name": "Akali - Rogue Assassin",
+    "domains": [
+      "Fury",
+      "Calm"
+    ],
+    "set": "VEN",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/0d53b477ed43fb9bbed84858443a606b2b51a2b5-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Ambessa - Matriarch of War",
+    "domains": [
+      "Body",
+      "Order"
+    ],
+    "set": "VEN",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/49e81916d7ae72b24de845223e1798652d26e789-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Annie - Dark Child",
+    "domains": [
+      "Fury",
+      "Chaos"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/89963e1d1cffd69c620fb5d6b037f50d5c334463-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Azir - Emperor of the Sands",
+    "domains": [
+      "Calm",
+      "Order"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/0472274c49f6540858758ebf9bd2f107a601541a-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Darius - Hand of Noxus",
+    "domains": [
+      "Fury",
+      "Order"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/5b9a904048b7fb936377844ec2d31564b7fedf81-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Diana - Scorn of the Moon",
+    "domains": [
+      "Mind",
+      "Chaos"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b00d922d62daca19190e13149fe3cf725c900330-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Draven - Glorious Executioner",
+    "domains": [
+      "Fury",
+      "Chaos"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b01b2d0454ceeffdc106c4c64a390b275ebf390b-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Ezreal - Prodigal Explorer",
+    "domains": [
+      "Mind",
+      "Chaos"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/d0e143d9edbc14971b2a7b463b3c25b2b6a0c098-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Fiora - Grand Duelist",
+    "domains": [
+      "Body",
+      "Order"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/37064aa79c13316b5dd28f0a2b054821a43f6650-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Garen - Might of Demacia",
+    "domains": [
+      "Body",
+      "Order"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/e7185deb46f17770802d06aeddfe3b929afff880-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Irelia - Blade Dancer",
+    "domains": [
+      "Calm",
+      "Chaos"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/656ef2d1724b818e9e737ec5dcce923de067a316-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Ivern - Green Father",
+    "domains": [
+      "Calm",
+      "Order"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/a2ca02d26c1e95db03690729bd31113bda7e4140-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Jax - Grandmaster At Arms",
+    "domains": [
+      "Calm",
+      "Body"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/c6ddf49d7249bc8ac194fd9b194bfcb8857a4466-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Jayce - Defender of Tomorrow",
+    "domains": [
+      "Mind",
+      "Body"
+    ],
+    "set": "VEN",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/670b7efd367a42beba11c18fb59e240a7c574a57-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Jhin - Virtuoso",
+    "domains": [
+      "Fury",
+      "Mind"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/d1e6947cf43a19488a2c31f71a4887aa0423a966-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Jinx - Loose Cannon",
+    "domains": [
+      "Fury",
+      "Chaos"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f57c14381b126e9f5a7b5bc4913151cb24c14fc3-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Kai'Sa - Daughter of the Void",
+    "domains": [
+      "Fury",
+      "Mind"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/a576472c7bb00f475882ac814e1d8f9be233b402-744x1040.png?accountingTag=RB"
+  },
+  {
+    "name": "Kha'Zix - Voidreaver",
+    "domains": [
+      "Body",
+      "Chaos"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/a5db0b3340a189de1cf9d8174b11eb583f19ea28-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "LeBlanc - Deceiver",
+    "domains": [
+      "Mind",
+      "Order"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/c17d29602d61d6702372fec4db44c6fb2a29e8a2-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Lee Sin - Blind Monk",
+    "domains": [
+      "Calm",
+      "Body"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ffe064e002d3b9a366748eb85102a769b2545835-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Leona - Radiant Dawn",
+    "domains": [
+      "Calm",
+      "Order"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/822b8bc7987a47498550708b18ef166b121fd620-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Lillia - Bashful Bloom",
+    "domains": [
+      "Calm",
+      "Mind"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/7e1554365120c5042947aef8bcac48a07445e9f3-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Lucian - Purifier",
+    "domains": [
+      "Fury",
+      "Body"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/450cfb71b8890904d48b37a24bbdc78f8d849614-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Lux - Lady of Luminosity",
+    "domains": [
+      "Mind",
+      "Order"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/44885d811b70621b188d9813b2b10b5cff1b81e6-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Master Yi - Wuju Bladesman",
+    "domains": [
+      "Calm",
+      "Body"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/8231ced23eaf22ca3bf62ec8cb86b83a3e222da6-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Master Yi - Wuju Master",
+    "domains": [
+      "Calm",
+      "Body"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ed9af55066593b4ee738b9529b847f2f738078e0-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Mel - Soul's Reflection",
+    "domains": [
+      "Mind",
+      "Chaos"
+    ],
+    "set": "VEN",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/2e9e60b3f161b41219c40ef0426049634fb7ba1a-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Miss Fortune - Bounty Hunter",
+    "domains": [
+      "Body",
+      "Chaos"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/cc11261fcdbf0851525030bd9e835b718efad3bc-744x1040.png?accountingTag=RB"
+  },
+  {
+    "name": "Nasus - Curator of the Sands",
+    "domains": [
+      "Calm",
+      "Mind"
+    ],
+    "set": "VEN",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f26a25c5fddba7da788455c3d82b85c5abc7a2eb-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Ornn - Fire Below the Mountain",
+    "domains": [
+      "Calm",
+      "Mind"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ed58d654034d545e54c85d836f3a6552772dd75b-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Poppy - Keeper of the Hammer",
+    "domains": [
+      "Body",
+      "Order"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/ee1393b9bace7bfea4e87405b793bb5462305ed0-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Pyke - Bloodharbor Ripper",
+    "domains": [
+      "Fury",
+      "Chaos"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/8ca1bfde8d898a11a6abc73bbab8fc7092b0dcb4-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Rek'sai - Void Burrower",
+    "domains": [
+      "Fury",
+      "Order"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/2db78549c30d8f9012af797fe075c4dc2355ec5d-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Renata Glasc - Chem-Baroness",
+    "domains": [
+      "Mind",
+      "Order"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/4bd289c281ad64229061ff909abf88c12a574833-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Renekton - Butcher of the Sands",
+    "domains": [
+      "Fury",
+      "Body"
+    ],
+    "set": "VEN",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/7620595b36b40a0c3d05c4c5469b016d1c18c6f2-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Rengar - Pridestalker",
+    "domains": [
+      "Fury",
+      "Body"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b3d3085f62aee993b9f5b80d4659a88439da83be-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Rumble - Mechanized Menace",
+    "domains": [
+      "Fury",
+      "Mind"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f311115e4c527ce82010596ce462d4050a9201b2-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Sett - The Boss",
+    "domains": [
+      "Body",
+      "Order"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b132becb843b2cf418cb110ead64758f49f51554-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Shen - Eye of Twilight",
+    "domains": [
+      "Calm",
+      "Order"
+    ],
+    "set": "VEN",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/54388a3124b7e1f0331e5970f952778db5f24500-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Sivir - Battle Mistress",
+    "domains": [
+      "Body",
+      "Chaos"
+    ],
+    "set": "SFD",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/fd060882c32a8deac04aea4241c6ab7b97236a05-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Teemo - Swift Scout",
+    "domains": [
+      "Mind",
+      "Chaos"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/9723181e3392bb61c2aabc804a44f7b0558cedf1-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Vex - Gloomist",
+    "domains": [
+      "Calm",
+      "Chaos"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/653e9b8fc4989bba59aa7ade4e0c33ffd5596e5a-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Vi - Piltover Enforcer",
+    "domains": [
+      "Fury",
+      "Order"
+    ],
+    "set": "UNL",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/b52fca3d644599008c4b1a67ffd359a9f9c4d8d7-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Viktor - Herald of the Arcane",
+    "domains": [
+      "Mind",
+      "Order"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/913236dabf1e4f71650bbba46870fff8163e2eff-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Volibear - Relentless Storm",
+    "domains": [
+      "Fury",
+      "Body"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/f1842ef373434db3e8109d8959832f9d184866c3-744x1040.png?accountingTag=RB"
+  },
+  {
+    "name": "Yasuo - Unforgiven",
+    "domains": [
+      "Calm",
+      "Chaos"
+    ],
+    "set": "OPP",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/68e4d3230b785738ae9d86f780f7f5607ef11807-744x1040.png?accountingTag=RB"
+  },
+  {
+    "name": "Yordle, Kennen - Heart of the Tempest",
+    "domains": [
+      "Order",
+      "Chaos"
+    ],
+    "set": "VEN",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/0eab83392b310417d2630d50a3bfee3dd02b31c4-744x1039.png?accountingTag=RB"
+  },
+  {
+    "name": "Zed - Master of Shadows",
+    "domains": [
+      "Fury",
+      "Chaos"
+    ],
+    "set": "VEN",
+    "image": "https://cmsassets.rgpub.io/sanity/images/dsfx7636/game_data_live/aa316eb1b01c8d036eaba84b03909027fe69f6e2-744x1039.png?accountingTag=RB"
+  }
+]

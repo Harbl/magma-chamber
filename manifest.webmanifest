@@ -1,0 +1,14 @@
+{
+  "name": "Riftbound 2v2 Scoreboard",
+  "short_name": "Riftbound 2v2",
+  "description": "Team scoreboard, round timer and standings for Riftbound 2v2 nights.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#080b14",
+  "theme_color": "#080b14",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

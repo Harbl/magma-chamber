@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riftbound 2v2 Scoreboard</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a0e1a">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ============ TV DISPLAY ============ -->
+<main id="display" hidden>
+  <header class="dsp-head">
+    <div class="dsp-title">
+      <h1 id="dsp-event">Riftbound 2v2</h1>
+      <p id="dsp-round">Waiting to start</p>
+    </div>
+    <div class="dsp-clock">
+      <div id="dsp-timer" class="timer">--:--</div>
+      <div id="dsp-timer-label" class="timer-label">Round Timer</div>
+    </div>
+  </header>
+
+  <section class="dsp-body">
+    <ol id="dsp-standings" class="standings"></ol>
+    <p id="dsp-empty" class="dsp-empty">Add teams to get started.</p>
+  </section>
+</main>
+
+<!-- ============ CONTROL PANEL ============ -->
+<div id="control" hidden>
+  <nav class="tabs">
+    <button data-tab="setup" class="on">Setup</button>
+    <button data-tab="teams">Teams</button>
+    <button data-tab="round">Round</button>
+    <button data-tab="standings">Standings</button>
+    <button data-tab="stats">Stats</button>
+    <button id="open-display" class="ghost">Open TV Display</button>
+  </nav>
+
+  <!-- SETUP -->
+  <section data-panel="setup">
+    <h2>Event</h2>
+    <label>Event name
+      <input id="ev-name" placeholder="Friday Night 2v2">
+    </label>
+    <label>Round length (minutes)
+      <input id="ev-minutes" type="number" min="1" max="180" value="50">
+    </label>
+
+    <h2>Import players</h2>
+    <p class="hint">Paste the event ID from the locator URL &mdash;
+      <code>locator.riftbound.uvsgames.com/events/<b>254672</b></code></p>
+    <div class="row">
+      <input id="ev-id" placeholder="254672" inputmode="numeric">
+      <button id="btn-import">Import signups</button>
+    </div>
+    <p id="import-msg" class="msg"></p>
+
+    <h2>Add a player manually</h2>
+    <div class="row">
+      <input id="new-player" placeholder="Player name">
+      <button id="btn-add-player">Add</button>
+    </div>
+
+    <h2>Players <span id="player-count" class="count"></span></h2>
+    <ul id="player-list" class="list"></ul>
+
+    <h2>Danger zone</h2>
+    <div class="row">
+      <button id="btn-finish" class="warn">Finish &amp; archive event</button>
+      <button id="btn-reset" class="danger">Reset everything</button>
+    </div>
+  </section>
+
+  <!-- TEAMS -->
+  <section data-panel="teams" hidden>
+    <h2>Teams</h2>
+    <p class="hint">Pick two players to form a team. Odd team counts get a bye each round.</p>
+    <div class="row">
+      <select id="pick-a"></select>
+      <select id="pick-b"></select>
+      <button id="btn-make-team">Create team</button>
+    </div>
+    <div class="row">
+      <button id="btn-auto-team" class="ghost">Auto-pair remaining players</button>
+    </div>
+    <p id="team-msg" class="msg"></p>
+    <ul id="team-list" class="list"></ul>
+  </section>
+
+  <!-- ROUND -->
+  <section data-panel="round" hidden>
+    <h2>Round <span id="round-num">&mdash;</span></h2>
+    <div class="row">
+      <button id="btn-pair">Generate pairings</button>
+      <button id="btn-start" class="ghost">Start timer</button>
+      <button id="btn-pause" class="ghost">Pause</button>
+      <button id="btn-reset-timer" class="ghost">Reset timer</button>
+    </div>
+    <div class="row">
+      <button id="btn-next-round" class="ghost">Finish round &amp; continue</button>
+    </div>
+    <p id="round-msg" class="msg"></p>
+    <ul id="pairing-list" class="list"></ul>
+  </section>
+
+  <!-- STANDINGS -->
+  <section data-panel="standings" hidden>
+    <h2>Standings</h2>
+    <p class="hint">Sorted by match points, then opponent win %. Drag to override the order shown on the TV.</p>
+    <div class="row">
+      <button id="btn-clear-order" class="ghost">Clear manual order</button>
+    </div>
+    <ol id="ctl-standings" class="list drag"></ol>
+  </section>
+
+  <!-- STATS -->
+  <section data-panel="stats" hidden>
+    <h2>Saved events <span id="archive-count" class="count"></span></h2>
+    <div class="row">
+      <button id="btn-export">Export all (JSON)</button>
+      <button id="btn-export-csv">Export all (CSV)</button>
+      <button id="btn-import-file" class="ghost">Import backup</button>
+      <input id="file-input" type="file" accept="application/json" hidden>
+    </div>
+    <p class="hint">Browser storage can be wiped by clearing site data. Export after each night to keep a durable copy.</p>
+    <p id="stats-msg" class="msg"></p>
+    <h2>Legend meta</h2>
+    <ul id="meta-list" class="list"></ul>
+    <h2>Event history</h2>
+    <ul id="archive-list" class="list"></ul>
+  </section>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
