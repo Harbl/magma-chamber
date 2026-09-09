@@ -6,6 +6,19 @@ Static page, no build step, no dependencies.
 Teams are fixed pairs for the night. An odd number of teams means one whole team
 takes a bye, and no team gets a second bye until every team has had one.
 
+## Scoring
+
+Both teams' game scores are recorded for every match. **The leaderboard ranks on
+cumulative game points scored across all rounds** — so a team can rank highly on
+strong scores even in a loss.
+
+Match record (3 points for a win, 1 for a draw) is still tracked and shown, but
+only breaks ties between teams level on game points. Opponent match-win % breaks
+it after that.
+
+A bye awards the configured bye points, set on the Setup tab. It defaults to 8;
+change it if your shop treats byes differently.
+
 ---
 
 ## Part 1 — one-time setup (Jake)
@@ -55,8 +68,9 @@ with no browser chrome. No Terminal, ever.
 3. **Teams** — pair players up, or press *Auto-pair remaining players*.
    *Rename* gives a team a custom name.
 4. Press **Open TV Display** and drag that window to the TV, then fullscreen it.
-5. **Round** — *Generate pairings*, then *Start timer*. Tap the winner of each
-   match as results come in; the TV updates itself.
+5. **Round** — *Generate pairings*, then *Start timer*. As each match finishes,
+   type both teams' game scores into the two boxes. The higher score wins, equal
+   scores are a draw, and the TV updates itself.
 6. *Finish round & continue* pairs the next round.
 7. At the end of the night, **Setup → Finish & archive event**. That saves the
    results and downloads a backup file automatically.

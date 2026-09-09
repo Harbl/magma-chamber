@@ -169,8 +169,19 @@ body {
   font-weight: 800;
   color: var(--gold-hi);
   font-variant-numeric: tabular-nums;
-  min-width: 3.5vw;
+  min-width: 5vw;
   text-align: right;
+  white-space: nowrap;
+}
+
+.st-pts-label {
+  font-size: 0.95vw;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  margin-left: 0.4vw;
 }
 
 .dsp-empty { color: var(--dim); font-size: 1.6vw; text-align: center; margin-top: 12vh; }
@@ -284,7 +295,28 @@ button.sm { padding: 5px 10px; font-size: 13px; }
 .pair-card { display: block; }
 .pair-teams { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .pair-vs { color: var(--gold); font-weight: 700; font-size: 13px; }
-.pair-actions { display: flex; gap: 6px; flex-wrap: wrap; }
-.pair-actions button.picked { outline: 2px solid var(--gold); }
+.pair-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+
+.score {
+  margin: 0;
+  font-size: 12px;
+  color: var(--dim);
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.score input {
+  width: 90px;
+  margin-top: 3px;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-note { font-size: 13px; color: var(--dim); padding-bottom: 10px; }
+.result-note.done { color: var(--gold); font-weight: 600; }
 
 .bye { color: var(--gold); font-weight: 600; }

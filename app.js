@@ -30,14 +30,23 @@ let state = load();
 
 function blank() {
   return {
-    name: '', minutes: 50,
+    name: '', minutes: 50, byePoints: 8,
     players: [],            // {id, name, legend}
     teams: [],              // {id, name, players:[id,id], custom:bool}
-    rounds: [],             // {n, pairings:[{a, b|null, result:'a'|'b'|'draw'|null}], endsAt, pausedMs, running}
+    rounds: [],             // {n, pairings:[{a, b|null, pa, pb, result}], endsAt, pausedMs, running}
     order: null,            // manual team-id order for the TV, or null
     archive: [],
   };
 }
+
+// A match is reported once both teams have a game score. The winner is whoever
+// scored more; equal scores are a draw.
+const reported = p => p.b === null ? p.pa != null : (p.pa != null && p.pb != null);
+const outcome = p => {
+  if (!reported(p)) return null;
+  if (p.b === null) return 'a';
+  return p.pa > p.pb ? 'a' : p.pb > p.pa ? 'b' : 'draw';
+};
 
 function load() {
   try {
@@ -73,21 +82,25 @@ function legendColor(name) {
 
 function records() {
   const rec = {};
-  for (const t of state.teams) rec[t.id] = { id: t.id, w: 0, l: 0, d: 0, pts: 0, opps: [], byes: 0 };
+  // gp = cumulative game points scored, which is what ranks the leaderboard.
+  // pts = match points (3/1/0), kept as a tiebreaker and for the W-L-D record.
+  for (const t of state.teams) rec[t.id] = { id: t.id, w: 0, l: 0, d: 0, pts: 0, gp: 0, opps: [], byes: 0 };
 
   for (const round of state.rounds) {
     for (const p of round.pairings) {
-      if (!p.result) continue;
+      const res = outcome(p);
+      if (!res) continue;
       if (p.b === null) { // bye counts as a win, but isn't an opponent for tiebreakers
-        if (rec[p.a]) { rec[p.a].w++; rec[p.a].pts += WIN; rec[p.a].byes++; }
+        if (rec[p.a]) { rec[p.a].w++; rec[p.a].pts += WIN; rec[p.a].gp += p.pa || 0; rec[p.a].byes++; }
         continue;
       }
       const A = rec[p.a], B = rec[p.b];
       if (!A || !B) continue;
       A.opps.push(p.b); B.opps.push(p.a);
-      if (p.result === 'draw') { A.d++; B.d++; A.pts += DRAW; B.pts += DRAW; }
-      else if (p.result === 'a') { A.w++; A.pts += WIN; B.l++; }
-      else if (p.result === 'b') { B.w++; B.pts += WIN; A.l++; }
+      A.gp += p.pa || 0; B.gp += p.pb || 0;
+      if (res === 'draw') { A.d++; B.d++; A.pts += DRAW; B.pts += DRAW; }
+      else if (res === 'a') { A.w++; A.pts += WIN; B.l++; }
+      else if (res === 'b') { B.w++; B.pts += WIN; A.l++; }
     }
   }
 
@@ -110,7 +123,9 @@ function standings() {
     const pos = Object.fromEntries(state.order.map((id, i) => [id, i]));
     return list.sort((a, b) => (pos[a.id] ?? 99) - (pos[b.id] ?? 99));
   }
-  return list.sort((a, b) => b.pts - a.pts || b.omw - a.omw || a.team.name.localeCompare(b.team.name));
+  // Ranked on cumulative game points, with match points then OMW breaking ties.
+  return list.sort((a, b) =>
+    b.gp - a.gp || b.pts - a.pts || b.omw - a.omw || a.team.name.localeCompare(b.team.name));
 }
 
 // ---------------------------------------------------------------- pairings
@@ -138,7 +153,7 @@ function makePairings() {
   // Pair down the standings, backtracking when the only option is a rematch.
   const pairs = walk(pool);
   if (!pairs) return null;
-  if (bye !== null) pairs.push({ a: bye, b: null, result: 'a' });
+  if (bye !== null) pairs.push({ a: bye, b: null, pa: state.byePoints ?? 8, pb: null });
   return pairs;
 
   function walk(rest) {
@@ -147,13 +162,13 @@ function makePairings() {
     for (const b of others) {
       if (alreadyPlayed(a, b)) continue;
       const tail = walk(others.filter(x => x !== b));
-      if (tail) return [{ a, b, result: null }, ...tail];
+      if (tail) return [{ a, b, pa: null, pb: null }, ...tail];
     }
     // Everyone left is a rematch; allow it rather than failing to pair.
     if (others.length) {
       const b = others[0];
       const tail = walk(others.slice(1));
-      if (tail) return [{ a, b, result: null }, ...tail];
+      if (tail) return [{ a, b, pa: null, pb: null }, ...tail];
     }
     return null;
   }
@@ -202,7 +217,7 @@ function renderDisplay() {
         <div class="st-players">${ps}</div>
       </div>
       <div class="st-record">${s.w}-${s.l}${s.d ? `-${s.d}` : ''}</div>
-      <div class="st-points">${s.pts}</div>
+      <div class="st-points">${s.gp}<i class="st-pts-label">pts</i></div>
     </li>`;
   }).join('');
 
@@ -230,6 +245,7 @@ function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;'
 function renderControl() {
   $('#ev-name').value = state.name;
   $('#ev-minutes').value = state.minutes;
+  $('#ev-bye').value = state.byePoints ?? 8;
   $('#player-count').textContent = state.players.length ? `(${state.players.length})` : '';
   $('#archive-count').textContent = state.archive.length ? `(${state.archive.length})` : '';
 
@@ -261,16 +277,22 @@ function renderControl() {
   const r = currentRound();
   $('#round-num').textContent = r ? r.n : '—';
   $('#pairing-list').innerHTML = !r ? '<li class="sub">No pairings yet.</li>' : r.pairings.map((p, i) => {
-    if (p.b === null) return `<li><span class="grow">${esc(teamName(p.a))}</span><span class="bye">BYE &middot; win</span></li>`;
+    if (p.b === null) return `<li><span class="grow">${esc(teamName(p.a))}</span>
+      <span class="bye">BYE &middot; ${p.pa} pts</span></li>`;
+    const res = outcome(p);
+    const note = res === 'draw' ? 'Draw'
+      : res ? `${esc(teamName(res === 'a' ? p.a : p.b))} wins`
+      : 'Awaiting scores';
     return `<li class="pair-card">
       <div class="pair-teams">
         <b>${esc(teamName(p.a))}</b> <span class="pair-vs">vs</span> <b>${esc(teamName(p.b))}</b>
       </div>
       <div class="pair-actions">
-        <button class="ghost sm ${p.result === 'a' ? 'picked' : ''}" data-res="${i}:a">${esc(teamName(p.a))} wins</button>
-        <button class="ghost sm ${p.result === 'draw' ? 'picked' : ''}" data-res="${i}:draw">Draw</button>
-        <button class="ghost sm ${p.result === 'b' ? 'picked' : ''}" data-res="${i}:b">${esc(teamName(p.b))} wins</button>
-        <button class="ghost sm" data-res="${i}:">Clear</button>
+        <label class="score">${esc(teamName(p.a))}
+          <input type="number" min="0" data-pts="${i}:a" value="${p.pa ?? ''}"></label>
+        <label class="score">${esc(teamName(p.b))}
+          <input type="number" min="0" data-pts="${i}:b" value="${p.pb ?? ''}"></label>
+        <span class="result-note ${res ? 'done' : ''}">${note}</span>
       </div>
     </li>`;
   }).join('');
@@ -279,7 +301,7 @@ function renderControl() {
   $('#ctl-standings').innerHTML = standings().map((s, i) => `
     <li draggable="true" data-team="${s.id}">
       <span class="grow"><b>${i + 1}. ${esc(s.team.name)}</b><br>
-        <span class="sub">${s.w}-${s.l}${s.d ? `-${s.d}` : ''} &middot; ${s.pts} pts &middot; OMW ${(s.omw * 100).toFixed(0)}%</span>
+        <span class="sub"><b>${s.gp} pts</b> &middot; ${s.w}-${s.l}${s.d ? `-${s.d}` : ''} &middot; ${s.pts} match pts &middot; OMW ${(s.omw * 100).toFixed(0)}%</span>
       </span>
     </li>`).join('') || '<li class="sub">No teams yet.</li>';
 
@@ -349,8 +371,13 @@ function finishEvent() {
       place: i + 1, name: s.team.name,
       players: s.team.players.map(id => player(id)?.name ?? '?'),
       legends: s.team.players.map(id => player(id)?.legend || null),
-      w: s.w, l: s.l, d: s.d, pts: s.pts,
+      w: s.w, l: s.l, d: s.d, pts: s.pts, gp: s.gp,
     })),
+    matches: state.rounds.flatMap(r => r.pairings.filter(reported).map(p => ({
+      round: r.n,
+      teamA: teamName(p.a), pointsA: p.pa,
+      teamB: p.b === null ? null : teamName(p.b), pointsB: p.pb,
+    }))),
   });
   Object.assign(state, blank(), { archive: state.archive, minutes: state.minutes });
   save();
@@ -367,11 +394,13 @@ function download(filename, text, type) {
 }
 
 function toCSV() {
-  const rows = [['event', 'date', 'place', 'team', 'players', 'legends', 'wins', 'losses', 'draws', 'points']];
+  const rows = [['event', 'date', 'place', 'team', 'players', 'legends',
+    'game_points', 'wins', 'losses', 'draws', 'match_points']];
   for (const ev of state.archive)
     for (const s of ev.standings)
       rows.push([ev.name, new Date(ev.date).toISOString().slice(0, 10), s.place, s.name,
-        s.players.join(' & '), (s.legends || []).filter(Boolean).join(' & '), s.w, s.l, s.d, s.pts]);
+        s.players.join(' & '), (s.legends || []).filter(Boolean).join(' & '),
+        s.gp ?? '', s.w, s.l, s.d, s.pts]);
   return rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
 }
 
@@ -389,6 +418,7 @@ if (!isDisplay) {
 
   $('#ev-name').oninput = e => { state.name = e.target.value; localStorage.setItem(KEY, JSON.stringify(state)); chan.postMessage(state); };
   $('#ev-minutes').onchange = e => { state.minutes = Math.max(1, +e.target.value || 50); save(); };
+  $('#ev-bye').onchange = e => { state.byePoints = Math.max(0, +e.target.value || 0); save(); };
 
   $('#btn-import').onclick = async () => {
     const id = $('#ev-id').value.trim().replace(/\D/g, '');
@@ -458,7 +488,7 @@ if (!isDisplay) {
   $('#btn-pair').onclick = () => {
     if (state.teams.length < 2) return msg('#round-msg', 'Need at least two teams.', 'err');
     const r = currentRound();
-    if (r && r.pairings.some(p => !p.result)) return msg('#round-msg', 'Finish reporting this round first.', 'err');
+    if (r && r.pairings.some(p => !reported(p))) return msg('#round-msg', 'Enter both scores for every match first.', 'err');
     const pairings = makePairings();
     if (!pairings) return msg('#round-msg', 'Could not build pairings.', 'err');
     state.rounds.push({ n: state.rounds.length + 1, pairings, endsAt: 0, pausedMs: state.minutes * 60000, running: false });
@@ -490,19 +520,21 @@ if (!isDisplay) {
   $('#btn-next-round').onclick = () => {
     const r = currentRound();
     if (!r) return msg('#round-msg', 'No round in progress.', 'err');
-    if (r.pairings.some(p => !p.result)) return msg('#round-msg', 'Report every match first.', 'err');
+    if (r.pairings.some(p => !reported(p))) return msg('#round-msg', 'Enter both scores for every match first.', 'err');
     r.running = false;
     save();
     $('#btn-pair').click();
   };
 
-  $('#pairing-list').onclick = e => {
-    const val = e.target.dataset.res;
+  // 'change' rather than 'input': re-rendering on every keystroke would steal focus.
+  $('#pairing-list').onchange = e => {
+    const val = e.target.dataset.pts;
     if (val === undefined) return;
-    const [i, result] = val.split(':');
+    const [i, side] = val.split(':');
     const r = currentRound();
     if (!r) return;
-    r.pairings[+i].result = result || null;
+    const raw = e.target.value.trim();
+    r.pairings[+i][side === 'a' ? 'pa' : 'pb'] = raw === '' ? null : Math.max(0, +raw || 0);
     save();
   };
 
