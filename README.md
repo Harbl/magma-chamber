@@ -1,269 +1,257 @@
 # Magma Chamber
 
-A TV scoreboard, round timer and Swiss pairing system for Riftbound 2v2 nights.
-Static page, no build step, no dependencies.
+A scoreboard, round timer and pairings display for Riftbound 2v2 nights, built to
+run on the TV at the shop.
 
-Teams are fixed pairs for the night. An odd number of teams means one whole team
-takes a bye, and no team gets a second bye until every team has had one.
-
-## Scoring
-
-Both teams' game scores are recorded for every match. **The leaderboard ranks on
-cumulative game points scored across all rounds** — so a team can rank highly on
-strong scores even in a loss.
-
-Match record (3 points for a win, 1 for a draw) is still tracked and shown, but
-only breaks ties between teams level on game points. Opponent match-win % breaks
-it after that.
-
-A bye awards the configured bye points, set on the Setup tab and adjustable
-mid-event. Defaults to 8.
+Everything below is written in plain English. There is no account to make.
+It runs on a **Mac** or on **Windows** — follow whichever setup section matches
+the computer you are using. After that, the rest of the guide is the same for
+both.
 
 ---
 
-## Testing on Windows
+## One time only — Mac
 
-Double-click **`Magma Chamber (Windows).bat`**. It starts a local server and
-opens the app. Closing the console window stops it. Node.js is the only
-requirement.
+*(On Windows? Skip to the next section.)*
 
-To try the TV view on a second monitor, press **Open TV Display** and drag that
-window across.
+### 1. Get the folder onto the Mac
 
----
+On this page, click the green **Code** button, then **Download ZIP**.
 
-## Setting up the shop MacBook
+Open your **Downloads** folder and double-click the ZIP. That makes a normal
+folder called `magma-chamber-main`.
 
-> Handing this to the shop staff? Point them at the **public repo's README**,
-> which covers Mac and Windows for someone who has never used a terminal.
-> `MAC-SETUP.md` here is the Mac-only original it grew out of.
+Drag that folder onto your **Desktop** so it is easy to find.
 
-Copy this folder to the Mac and double-click **`Magma Chamber (macOS).command`**.
-It starts a local server and opens the app. Keep the Terminal window open; closing
-it stops the app.
+### 2. Let the Mac run it
 
-Nothing else is required — no Cloudflare account, no hosting, no proxy. Serving
-from `localhost` is the whole trick: the locator API allowlists that hostname, so
-signup import works directly.
+Because you downloaded this from the internet, macOS wants you to confirm it once.
 
-> It must be `http://localhost:8080`, never `http://127.0.0.1:8080`. The API
-> allowlists the hostname, and the two are not interchangeable here.
+Open the folder. Find the file called:
 
-On a stock Mac with nothing installed, this runs on **Perl**, which macOS ships
-and which — unlike the others — is a real binary rather than a stub. The server
-it uses (`tools/serve.pl`) needs only core Perl modules.
+**`Magma Chamber (macOS).command`**
 
-The launcher prefers Node if it happens to be installed, then falls back to Perl,
-Ruby, PHP and finally Python, asking you to install Node only if it somehow finds
-none of them. Python is deliberately last: `/usr/bin/python3` is a shim that pops
-an Xcode install prompt when the command line tools are missing.
+**Right-click it** (or hold Control and click), then choose **Open**.
 
-If macOS refuses to run it, the file lost its executable bit in transit. In
-Terminal: `chmod +x "Magma Chamber (macOS).command"`. On first run, Gatekeeper may
-need **right-click → Open** rather than a double-click.
+A warning box appears. Click **Open** again.
 
-### Giving it a Dock icon
+> You only do the right-click step once. Every time after this, a normal
+> double-click works.
 
-`localhost` counts as a secure origin, so Chrome will install it as a real app:
-open `http://localhost:8080`, then **⋮ → Cast, save and share → Install page as
-app**. That gives a Dock icon opening fullscreen with no browser chrome.
+If instead you get a message about *permission denied*, see
+**"If something goes wrong"** at the bottom.
 
-The launcher still has to be running first, so the simplest habit is to keep the
-`.command` on the Desktop and double-click it when opening the shop. Running it
-again when it's already up just reopens the window rather than starting a second
-server.
+Nothing needs installing on a Mac — everything it needs is already there.
 
 ---
 
-## Running a night
+## One time only — Windows
 
-1. Open the app from the Dock.
-2. **Setup** — type the event name. Paste the event ID from the locator URL
-   (`…/events/`**`254672`**) and press *Import signups*.
-3. **Teams** — pick two players, optionally type a team name, and *Create team*.
-   Leaving the name blank falls back to "Player A & Player B". *Auto-pair
-   remaining players* does the rest in one press, and *Rename* fixes any of them.
-4. Press **Open TV Display** and drag that window to the TV, then fullscreen it.
-5. **Round** — *Generate pairings*, then *Start timer*. Each match is assigned a
-   table number, counting down the standings so table 1 is the top match. As each
-   match finishes, tap the winning team's name — it turns green, the loser turns
-   red, and the score boxes appear. Enter both teams' game points to record it.
-6. *Finish round & continue* pairs the next round.
-7. At the end of the night, **Setup → Finish & archive event**. That saves the
-   results and downloads a backup file automatically.
+*(On a Mac? Use the section above instead.)*
 
-The control window and the TV window stay in sync. Either can be refreshed
-mid-event without losing anything.
+### 1. Install Node.js
 
-### What the TV shows
+Unlike a Mac, Windows does not come with the piece this app needs to run, so you
+install it once. It is free and takes a couple of minutes.
 
-When a round is paired the TV leads with the **pairings and table numbers**, so
-players can find their seat. After the configured number of minutes — or as soon
-as every result is in — it switches itself to the leaderboard. Set that to `0` on
-the Setup tab to skip the pairings view entirely.
+Go to **https://nodejs.org** and click the big green **LTS** button. Run the file
+it downloads and click **Next** through the installer, leaving every setting the
+way it comes.
 
-The TV window is exactly one screen tall and never grows a scrollbar. If the list
-is longer than the screen it creeps downward, holds at the bottom for a few
-seconds, then snaps back to the top and repeats. Lists that already fit stay put.
+You never have to open Node.js or think about it again — the app uses it in the
+background.
 
-Players who have a Legend assigned show its **card art** beside their name rather
-than the Legend's name — far easier to read across a room. Art is pulled from
-Riot's CDN as a 160px crop, so it costs about 6KB per Legend instead of 1.1MB.
+> On a shop computer that locks things down, you may need whoever looks after it
+> to install this for you.
 
-### Sizing the TV text
+### 2. Get the folder onto the PC
 
-Layout is in `vw`/`vh` units, so it renders identically at 1080p and 4K — only
-the physical screen size and how far away people sit actually matter.
+On this page, click the green **Code** button, then **Download ZIP**.
 
-Defaults suit a ~46in 1080p set read from about 10–12 feet: team names and point
-totals are comfortable there, and the timer reads from roughly 45 feet.
+Open your **Downloads** folder, right-click the ZIP, choose **Extract All**, then
+**Extract**. That makes a normal folder called `magma-chamber-main`.
 
-With the display window focused, **`+`** and **`-`** resize everything except the
-timer, and **`0`** resets. The setting is remembered per screen, so the TV keeps
-its own size and the control laptop is unaffected. Bigger text means fewer teams
-visible at once — about 5 rows at the default, 4 at 125% — but the auto-scroll
-cycles the rest through.
+Drag that folder onto your **Desktop** so it is easy to find.
 
-### Legends and stats
+### 3. Let Windows run it
 
-Each player can be given a Legend on the Setup tab. It shows beside their name on
-the TV, colour-coded by domain, and feeds the meta breakdown under **Stats**.
+Open the folder and find the file called:
 
-**Stats** also holds every saved event, with export to JSON (re-importable) and
-CSV (opens in Excel). Browser storage can be wiped by clearing site data, so the
-exports are the durable copy — the app downloads one automatically each time an
-event is archived.
+**`Magma Chamber (Windows).bat`**
+
+Double-click it.
+
+The first time, Windows may show a blue box saying **"Windows protected your
+PC"**. Click the small **More info** text, then the **Run anyway** button that
+appears.
+
+> You only do that step once.
 
 ---
 
-## Carde.io reporting
+## Every event night
 
-The **Carde.io** tab pulls a round's pairings from the shop's Carde.io event and
-reports results back, so Riot sees the store's activity without anyone
-double-entering it.
+### 1. Start it
 
-Carde.io has no team concept, so results go in **per player** — which matches how
-the shop reports today.
+Double-click the launcher in the folder:
 
-### Getting a token
+- On a Mac — **`Magma Chamber (macOS).command`**
+- On Windows — **`Magma Chamber (Windows).bat`**
 
-Carde.io authenticates through Auth0 and has no public login for third-party
-tools, so a proper "Log in with Carde.io" button isn't possible unless Carde
-registers a callback for us. Until then the organiser pastes their own token:
+A black text window opens. That is normal, it is the app running.
+**Leave that window open.** Closing it turns the app off.
 
-1. Sign in at **dashboard.carde.io** in Chrome.
-2. Open DevTools (**⌥⌘I**) and pick the **Network** tab.
-3. Click anything in the dashboard that loads data.
-4. Select any request to `api.carde.io`, open **Headers**, and find
-   **`authorization: Bearer …`** under Request Headers.
-5. Copy everything after `Bearer ` and paste it into the Carde.io tab.
+Your web browser opens automatically to the app.
 
-Tokens expire, so expect to repeat this each event night. The app says
-*"Token rejected — it has probably expired"* when that happens.
+### 2. Put the scoreboard on the TV
 
-> Worth asking Carde.io support for proper API access. The auth layer is a single
-> swappable seam, so an API key or a registered callback drops in without
-> reworking anything else.
+In the app, click **Open TV Display**.
 
-### Using it
+A second window opens. Drag that window onto the TV, then make it fill the whole
+screen:
 
-Connect, choose the store, game and event, then **Load rounds** and
-**Show pairings**. Each pairing gets buttons to report a winner, a draw, or a
-double loss. Reported pairings are marked, and the list refreshes after each push.
+- On a Mac — press **Control + Command + F**
+- On Windows — press **F11**
 
-Pair the round **in Carde.io first** — reporting needs Carde's own pairing IDs,
-which only exist once Carde has paired.
+Leave the first window on the laptop. That is the one you type into.
 
-### Carde.io takes over pairing
+### 3. Run the night
 
-Once a token is connected **and** a round has been loaded, Carde.io owns the
-event. *Generate pairings* and *Finish round & continue* are disabled on the
-Round tab and an explanation replaces them, because two sets of pairings would
-mean results getting reported against the wrong matches.
+In the first window:
 
-The handlers refuse as well, not just the buttons — a disabled button is not the
-only way to reach them.
+- **Setup** — type the event name, then paste the event ID and click
+  *Import signups*. The event ID is the number at the end of the event's web
+  address on the Riftbound locator, like `.../events/`**`254672`**.
+- **Teams** — put players into pairs.
+- **Round** — click *Generate pairings*, then *Start timer*. Tap the winning
+  team, then type both teams' scores.
+- When the night is over — **Setup → Finish & archive event**.
 
-The timer, teams and stats keep working, and the TV falls back to showing
-Carde.io's pairings and table numbers. Disconnecting hands pairing straight back
-to the local Swiss engine.
+### 4. Shut down
 
-## The two repositories
+Close the black text window. That's it.
 
-| | branch | contains |
-|---|---|---|
-| **magma-chamber-private** | `main` | everything — this README, the tests, `worker/`, the Carde.io notes |
-| **magma-chamber** (public) | `main` | the app only, with a plain-English README for shop staff |
+---
 
-`main` tracks `private/main`, so a bare `git push` updates the private repo.
-The public repo is fed from a local `public` branch that sits one commit ahead of
-`main`. That commit swaps in the plain-English README and drops the technical
-files: `MAC-SETUP.md`, `worker/`, `tools/logic-test.js` and
-`tools/fetch-legends.js`.
+## Sending results to Carde.io
 
-**The public README only exists on the `public` branch** — it started as
-`MAC-SETUP.md` but has since diverged, covering Windows setup and Carde.io as
-well. Edit it there and `commit --amend` onto the strip-down commit; there is no
-copy on `main` to keep in sync.
+If the event is being run on Carde.io, the app can pull the pairings from there
+and send the results back, so nobody has to type them in twice.
 
-To publish new work to the public repo:
+### Connect
 
-```bash
-git checkout public
-git rebase main                    # replay the strip-down commit onto the new work
-git push -f origin public:main     # force needed: the rebase rewrites that commit
-git checkout main
+1. Open the **Carde.io** tab in the app.
+2. In another browser tab, sign in at **dashboard.carde.io**.
+3. Open the developer panel — on a Mac press **Option + Command + I**, on Windows
+   press **F12** — then click the **Network** heading along the top of it.
+4. Click around the Carde.io dashboard until a list of items appears in that
+   panel. Click any item whose name starts with **api.carde.io**.
+5. Look under **Request Headers** for a line starting with **authorization:
+   Bearer**. Copy the long code that comes after the word `Bearer`.
+6. Paste it into the Carde.io tab in Magma Chamber and click **Connect**.
+
+> This code expires, so you will need to fetch a new one each event night.
+> If the app says *"Token rejected"*, that is all this means — repeat the steps
+> above.
+
+### Run the round
+
+1. Choose the store, the game, and tonight's event.
+2. Click **Load rounds**, pick the round, then **Show pairings**.
+3. The pairings and table numbers appear, and go up on the TV automatically.
+4. As each match finishes, click the winning player's name. There are also
+   **Draw** and **Double loss** buttons.
+5. Each click is sent to Carde.io straight away, and the pairing is marked once
+   it has gone through.
+
+**Pair the round in Carde.io first.** The app can only show and report pairings
+that already exist there.
+
+### What changes when Carde.io is connected
+
+Carde.io is in charge of pairings, so the app switches its own pairing off:
+
+- **Generate pairings** and **Finish round & continue** stop working, and a note
+  appears explaining why. This is deliberate — two different sets of pairings
+  would mean results going against the wrong matches.
+- The round timer, the teams list and the stats all keep working as normal.
+- The TV shows Carde.io's pairings and table numbers.
+
+Click **Disconnect** on the Carde.io tab to go back to the app making its own
+pairings.
+
+> Carde.io records **individual players**, not teams. So a 2v2 result is sent as
+> a win for each player on the winning side. That matches how the shop reports
+> today.
+
+---
+
+## Making the text bigger or smaller on the TV
+
+Click on the TV window once, then press the **+** or **−** key.
+Press **0** to put it back to normal.
+
+The computer remembers this, so you only need to do it once.
+
+---
+
+## If something goes wrong
+
+**The black window says "Node.js was not found" (Windows)**
+
+Step 1 of the Windows setup was skipped, or did not finish. Install it from
+**https://nodejs.org** using the green **LTS** button, then restart the computer
+and double-click the launcher again.
+
+**Windows shows a blue "Windows protected your PC" box**
+
+Click **More info**, then **Run anyway**. Windows shows this for anything
+downloaded from the internet, and it only asks once.
+
+**"Permission denied" when you double-click (Mac)**
+
+The file lost a setting when it was unzipped. Fix it once:
+
+1. Open **Terminal** (press Command + Space, type `Terminal`, press Return).
+2. Type this exactly, including the space at the end:
+   ```
+   chmod +x 
+   ```
+3. Drag the `Magma Chamber (macOS).command` file into the Terminal window.
+   It fills in the location for you.
+4. Press **Return**. Nothing appears to happen — that means it worked.
+5. Go back and double-click the file again.
+
+**The page says it can't connect**
+
+The black text window probably got closed. Double-click the launcher again.
+
+**"Import signups" says it can't find the event**
+
+Check that you used only the number from the web address, with no extra
+characters. Also make sure the computer is on the internet.
+
+**Carde.io says the token was rejected**
+
+The code expires. Fetch a fresh one using the steps in
+**"Sending results to Carde.io"** above.
+
+**Generate pairings is greyed out**
+
+That means Carde.io is connected and in charge of pairings. Use the Carde.io tab,
+or click **Disconnect** there if you would rather the app make its own.
+
+**The browser didn't open by itself**
+
+Open your browser and type this into the address bar:
+
+```
+localhost:8080
 ```
 
-The force push only ever rewrites the public mirror, never `main` and never the
-private repo. If the rebase conflicts it will be in `README.md` — keep the
-`public` branch's version, which is the plain-English one.
+Use `localhost`, not anything else — the import feature depends on it.
 
-## Maintenance
+**Nothing works and you need it running now**
 
-Refresh the Legend list after a new set releases:
-
-```bash
-node tools/fetch-legends.js
-```
-
-Run the scoring and pairing tests:
-
-```bash
-node tools/logic-test.js
-```
-
-## Layout
-
-```
-index.html      markup for both the control panel and the TV display
-app.js          state, scoring, Swiss pairings, timer, import/export
-carde.js        Carde.io API client (pull pairings, report results)
-app.css         theming; display view is sized in vw/vh for TV legibility
-sw.js           offline cache, so dropped wifi doesn't kill the scoreboard
-data/legends.json   49 Legends with domains and card art
-tools/serve.js      local static server (Node), used when Node is available
-tools/serve.pl      same in core-only Perl, for a stock Mac with nothing installed
-tools/          legend fetcher and the logic test suite
-worker/         optional CORS proxy, only if you ever host this on the web
-```
-
-## If you ever host it instead
-
-Running locally is the recommended setup and needs no proxy. A *hosted* copy is
-different: the locator API rejects browser requests from any origin except
-`localhost` and its own domain, so signup import would break.
-
-`worker/` covers that case. Deploy it with `npx wrangler deploy`, then set
-`PROXY` near the top of `app.js` to the `https://….workers.dev` URL it prints.
-Leave `PROXY` empty for local use.
-
-## Notes on the data
-
-Signups, event details and round length come from the Riftbound locator's own
-API (`api.cloudflare.riftbound.uvsgames.com/hydraproxy`), which is public and
-unauthenticated. Legend data comes from [Riftcodex](https://riftcodex.com).
-
-Scoring is owned entirely by this app. The locator runs 2v2 nights as ordinary
-individual events (`is_team_event: false`), so it has no concept of team
-standings to read back — which is the reason this exists.
+Everything except *Import signups* works without the internet. You can add
+players by hand on the Setup tab and run the whole night that way.
