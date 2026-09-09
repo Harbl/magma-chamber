@@ -24,6 +24,12 @@
 
 * { box-sizing: border-box; }
 
+/* An author `display` value outranks the [hidden] attribute's UA `display:none`.
+   Several elements here are toggled via .hidden AND carry their own display rule
+   (#display is flex, the standings/pairings lists are grid), so without this they
+   never actually hide. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);

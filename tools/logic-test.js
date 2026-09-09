@@ -188,5 +188,19 @@ check('t1 ahead on stronger opponent', run(`records()['t1'].omw > records()['t3'
 check('standings put t1 above t3',
   run(`standings().findIndex(s=>s.id==='t1') < standings().findIndex(s=>s.id==='t3')`));
 
+// --- 8. the [hidden] override is still in place ---------------------------
+// #display is display:flex and the standings/pairings lists are display:grid.
+// An author display value beats [hidden]'s UA display:none, so without an explicit
+// reset none of them hide and the TV view renders on top of the control panel.
+console.log('\nCSS guards:');
+const css = fs.readFileSync(path.join(__dirname, '..', 'app.css'), 'utf8');
+check('[hidden] forced to display:none',
+  /\[hidden\]\s*\{[^}]*display:\s*none\s*!important/.test(css));
+
+const toggled = ['#display', '#control', '#dsp-pairings', '#dsp-standings'];
+const js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+for (const sel of toggled)
+  check(`${sel} is toggled via .hidden`, js.includes(`$('${sel}').hidden`));
+
 console.log(failures ? `\n${failures} FAILURE(S)\n` : '\nAll checks passed.\n');
 process.exit(failures ? 1 : 0);
