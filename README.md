@@ -135,6 +135,44 @@ event is archived.
 
 ---
 
+## Carde.io reporting
+
+The **Carde.io** tab pulls a round's pairings from the shop's Carde.io event and
+reports results back, so Riot sees the store's activity without anyone
+double-entering it.
+
+Carde.io has no team concept, so results go in **per player** — which matches how
+the shop reports today.
+
+### Getting a token
+
+Carde.io authenticates through Auth0 and has no public login for third-party
+tools, so a proper "Log in with Carde.io" button isn't possible unless Carde
+registers a callback for us. Until then the organiser pastes their own token:
+
+1. Sign in at **dashboard.carde.io** in Chrome.
+2. Open DevTools (**⌥⌘I**) and pick the **Network** tab.
+3. Click anything in the dashboard that loads data.
+4. Select any request to `api.carde.io`, open **Headers**, and find
+   **`authorization: Bearer …`** under Request Headers.
+5. Copy everything after `Bearer ` and paste it into the Carde.io tab.
+
+Tokens expire, so expect to repeat this each event night. The app says
+*"Token rejected — it has probably expired"* when that happens.
+
+> Worth asking Carde.io support for proper API access. The auth layer is a single
+> swappable seam, so an API key or a registered callback drops in without
+> reworking anything else.
+
+### Using it
+
+Connect, choose the store, game and event, then **Load rounds** and
+**Show pairings**. Each pairing gets buttons to report a winner, a draw, or a
+double loss. Reported pairings are marked, and the list refreshes after each push.
+
+Pair the round **in Carde.io first** — reporting needs Carde's own pairing IDs,
+which only exist once Carde has paired.
+
 ## Maintenance
 
 Refresh the Legend list after a new set releases:
@@ -154,6 +192,7 @@ node tools/logic-test.js
 ```
 index.html      markup for both the control panel and the TV display
 app.js          state, scoring, Swiss pairings, timer, import/export
+carde.js        Carde.io API client (pull pairings, report results)
 app.css         theming; display view is sized in vw/vh for TV legibility
 sw.js           offline cache, so dropped wifi doesn't kill the scoreboard
 data/legends.json   49 Legends with domains and card art

@@ -50,6 +50,7 @@
     <button data-tab="round">Round</button>
     <button data-tab="standings">Standings</button>
     <button data-tab="stats">Stats</button>
+    <button data-tab="carde">Carde.io</button>
     <button id="open-display" class="ghost">Open TV Display</button>
   </nav>
 
@@ -159,8 +160,43 @@
     <h2>Event history</h2>
     <ul id="archive-list" class="list"></ul>
   </section>
+
+  <!-- CARDE.IO -->
+  <section data-panel="carde" hidden>
+    <h2>Connection</h2>
+    <p class="hint">Carde.io has no public login for outside tools yet, so paste an
+      access token from the Carde.io dashboard. Tokens expire, so expect to repaste
+      each event night. See the README for how to copy one.</p>
+    <div class="row">
+      <input id="carde-token" type="password" placeholder="Paste Carde.io token" autocomplete="off">
+      <button id="carde-connect">Connect</button>
+      <button id="carde-disconnect" class="ghost">Disconnect</button>
+    </div>
+    <p id="carde-status" class="msg"></p>
+
+    <h2>Event</h2>
+    <div class="row">
+      <select id="carde-store"></select>
+      <select id="carde-game"></select>
+    </div>
+    <div class="row">
+      <select id="carde-event"></select>
+      <button id="carde-load" class="ghost">Load rounds</button>
+    </div>
+    <div class="row">
+      <select id="carde-round"></select>
+      <button id="carde-pairings">Show pairings</button>
+    </div>
+    <p id="carde-msg" class="msg"></p>
+
+    <h2>Carde.io pairings <span id="carde-count" class="count"></span></h2>
+    <p class="hint">Reporting sends an individual win to Carde.io for the player you
+      pick. Carde.io has no team concept yet, so a 2v2 result goes in per player.</p>
+    <ul id="carde-pairing-list" class="list"></ul>
+  </section>
 </div>
 
+<script src="carde.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

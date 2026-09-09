@@ -1,7 +1,8 @@
 // Cache the app shell so a dropped wifi connection mid-tournament doesn't take
 // the scoreboard down. Bump CACHE to force clients onto a new version.
-const CACHE = 'magma-chamber-v1';
-const SHELL = ['.', 'index.html', 'app.css', 'app.js', 'data/legends.json', 'icon.svg', 'manifest.webmanifest'];
+const CACHE = 'magma-chamber-v2';
+const SHELL = ['.', 'index.html', 'app.css', 'app.js', 'carde.js',
+  'data/legends.json', 'icon.svg', 'manifest.webmanifest'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

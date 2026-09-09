@@ -666,6 +666,134 @@ if (!isDisplay) {
     save();
   });
 
+  // ------------------------------------------------------- Carde.io tab
+
+  const fill = (sel, items, label, value, placeholder) => {
+    $(sel).innerHTML = `<option value="">${placeholder}</option>` +
+      items.map(i => `<option value="${esc(value(i))}">${esc(label(i))}</option>`).join('');
+  };
+
+  const cardeStatus = () => {
+    const c = Carde.context();
+    $('#carde-status').textContent = Carde.isConnected()
+      ? `Connected${c.establishmentName ? ' — ' + c.establishmentName : ''}.`
+      : 'Not connected.';
+    $('#carde-status').className = 'msg ' + (Carde.isConnected() ? 'ok' : '');
+  };
+
+  $('#carde-connect').onclick = async () => {
+    const t = $('#carde-token').value.trim();
+    if (!t) return msg('#carde-status', 'Paste a token first.', 'err');
+    msg('#carde-status', 'Connecting…');
+    try {
+      const stores = await Carde.connect(t);
+      $('#carde-token').value = '';
+      fill('#carde-store', stores, s => s.name, s => s.id, 'Choose a store');
+      msg('#carde-status', `Connected. ${stores.length} store${stores.length === 1 ? '' : 's'} available.`, 'ok');
+    } catch (e) { msg('#carde-status', e.message, 'err'); }
+  };
+
+  $('#carde-disconnect').onclick = () => {
+    Carde.disconnect();
+    ['#carde-store', '#carde-game', '#carde-event', '#carde-round'].forEach(s => ($(s).innerHTML = ''));
+    $('#carde-pairing-list').innerHTML = '';
+    cardeStatus();
+  };
+
+  $('#carde-store').onchange = async e => {
+    const id = e.target.value;
+    if (!id) return;
+    const name = e.target.selectedOptions[0].textContent;
+    Carde.setContext({ establishmentId: id, establishmentName: name });
+    try {
+      const [games, events] = await Promise.all([Carde.games(id), Carde.events(id)]);
+      fill('#carde-game', games, g => g.name || g.game?.name || g.id, g => g.gameId || g.game?.id || g.id, 'Choose a game');
+      fill('#carde-event', events, v => v.name, v => v.id, 'Choose an event');
+      msg('#carde-msg', `${games.length} games, ${events.length} events.`, 'ok');
+    } catch (err) { msg('#carde-msg', err.message, 'err'); }
+  };
+
+  $('#carde-game').onchange = e => Carde.setContext({ gameId: e.target.value });
+
+  $('#carde-load').onclick = async () => {
+    const id = $('#carde-event').value;
+    if (!id) return msg('#carde-msg', 'Choose an event first.', 'err');
+    msg('#carde-msg', 'Loading…');
+    try {
+      const act = await Carde.activity(id);
+      Carde.setContext({ activityId: id });
+      // Rounds hang off the activity's phases, newest phase last.
+      const rounds = (act?.activityPhases || act?.phases || [])
+        .flatMap(p => (p.tournamentRounds || p.rounds || []));
+      if (!rounds.length) return msg('#carde-msg', 'No rounds on that event yet — pair it in Carde.io first.', 'err');
+      fill('#carde-round', rounds, r => `Round ${r.roundNumber ?? r.number ?? r.id}`, r => r.id, 'Choose a round');
+      msg('#carde-msg', `${rounds.length} round${rounds.length === 1 ? '' : 's'} found.`, 'ok');
+    } catch (err) { msg('#carde-msg', err.message, 'err'); }
+  };
+
+  $('#carde-pairings').onclick = async () => {
+    const roundId = $('#carde-round').value;
+    if (!roundId) return msg('#carde-msg', 'Choose a round first.', 'err');
+    msg('#carde-msg', 'Loading pairings…');
+    try {
+      const pairings = await Carde.pairings(roundId);
+      Carde.setContext({ roundId });
+      renderCardePairings(pairings);
+      msg('#carde-msg', `${pairings.length} pairing${pairings.length === 1 ? '' : 's'}.`, 'ok');
+    } catch (err) { msg('#carde-msg', err.message, 'err'); }
+  };
+
+  // Seat shape varies across Carde responses, so pull the id/name defensively.
+  const seatsOf = p => (p.seats || p.players || p.activityPhaseUsers || p.participants || [])
+    .map(s => ({
+      id: s.activityPhaseUserId || s.id,
+      name: s.displayName || s.bestIdentifier || s.user?.displayName || s.name || 'Unknown',
+    }));
+
+  function renderCardePairings(pairings) {
+    window.__cardePairings = pairings;
+    $('#carde-count').textContent = pairings.length ? `(${pairings.length})` : '';
+    $('#carde-pairing-list').innerHTML = pairings.map((p, i) => {
+      const seats = seatsOf(p);
+      const table = p.tableNumber ?? p.table ?? '';
+      const done = p.result ? '<span class="bye">reported</span>' : '';
+      return `<li class="pair-card">
+        <div class="pair-teams">
+          ${table ? `<span class="table-tag">Table ${esc(table)}</span>` : ''}
+          ${seats.map(s => `<b>${esc(s.name)}</b>`).join('<span class="pair-vs">vs</span>')}
+          ${done}
+        </div>
+        <div class="pair-actions">
+          ${seats.map(s => `<button class="ghost sm" data-carde="${i}:win:${esc(s.id)}">${esc(s.name)} wins</button>`).join('')}
+          <button class="ghost sm" data-carde="${i}:draw:">Draw</button>
+          <button class="ghost sm" data-carde="${i}:dl:">Double loss</button>
+        </div>
+      </li>`;
+    }).join('') || '<li class="sub">No pairings loaded.</li>';
+  }
+
+  $('#carde-pairing-list').onclick = async e => {
+    const val = e.target.dataset.carde;
+    if (val === undefined) return;
+    const [i, kind, id] = val.split(':');
+    const p = (window.__cardePairings || [])[+i];
+    if (!p) return;
+    e.target.disabled = true;
+    msg('#carde-msg', 'Reporting…');
+    try {
+      if (kind === 'win') await Carde.reportWinner(p.id, id);
+      else if (kind === 'draw') await Carde.reportDraw(p.id);
+      else await Carde.reportDoubleLoss(p.id);
+      msg('#carde-msg', 'Reported to Carde.io.', 'ok');
+      renderCardePairings(await Carde.pairings(Carde.context().roundId));
+    } catch (err) {
+      msg('#carde-msg', err.message, 'err');
+      e.target.disabled = false;
+    }
+  };
+
+  cardeStatus();
+
   $('#btn-finish').onclick = () => { if (confirm('Archive this event and start fresh?')) finishEvent(); };
   $('#btn-reset').onclick = () => {
     if (!confirm('Erase the current event? Archived events are kept.')) return;

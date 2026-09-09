@@ -21,6 +21,7 @@ const el = new Proxy(function () {}, {
 });
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const CARDE_SRC = fs.readFileSync(path.join(__dirname, '..', 'carde.js'), 'utf8');
 
 // A node that actually remembers what was written to it, so the display path can
 // be inspected. One instance per selector, reused across lookups.
@@ -61,6 +62,7 @@ function makeCtx(search = '') {
   };
   ctx.window = ctx;
   vm.createContext(ctx);
+  vm.runInContext(CARDE_SRC, ctx);   // app.js expects the Carde global
   return { ctx, nodes };
 }
 
@@ -69,6 +71,7 @@ vm.runInContext(SRC, ctx);
 
 // --- helpers ---------------------------------------------------------------
 let failures = 0;
+const pending = [];   // async checks the summary waits on
 const check = (label, cond, extra = '') => {
   console.log(`${cond ? '  PASS' : '  FAIL'}  ${label}${extra && !cond ? ' -- ' + extra : ''}`);
   if (!cond) failures++;
@@ -281,6 +284,60 @@ check('CSV header names the external fields',
   /player,team,legend,wins,losses,draws,match_points,game_points/.test(
     run('playerResultsCSV()').split('\n')[0].replace(/"/g, '')));
 
+// --- 7d. Carde.io request contract ----------------------------------------
+// Shapes taken from the Carde.io dashboard bundle. If these drift, reporting
+// silently stops matching what their API expects.
+console.log('\nCarde.io client:');
+{
+  const { ctx: cctx } = makeCtx('');
+  const sent = [];
+  cctx.fetch = (url, opts = {}) => {
+    sent.push({ url, ...opts, parsed: opts.body ? JSON.parse(opts.body) : null });
+    return Promise.resolve({
+      ok: true, status: 200,
+      text: () => Promise.resolve(JSON.stringify({ data: [] })),
+    });
+  };
+  const crun = e => vm.runInContext(e, cctx);
+
+  crun(`Carde.connect('  Bearer abc123  ')`);
+  check('token is trimmed and Bearer prefix stripped', crun('Carde.token') === 'abc123');
+  check('connect verifies against the store list',
+    sent[0].url === 'https://api.carde.io/api/play/establishments/', sent[0].url);
+  check('Authorization header set', sent[0].headers.Authorization === 'Bearer abc123');
+
+  crun(`Carde.setContext({gameId:'game-uuid'}); Carde.reportWinner('pair-1','user-9')`);
+  const win = sent[sent.length - 1];
+  check('report posts to the pairing report route',
+    win.url === 'https://api.carde.io/api/play/tournamentPairings/pair-1/report', win.url);
+  check('report is a POST', win.method === 'POST');
+  check('Game-Id header sent', win.headers['Game-Id'] === 'game-uuid');
+  check('winner recorded as the participant id',
+    JSON.stringify(win.parsed) === JSON.stringify(
+      { isDoubleLoss: false, isIntentionalDraw: false, games: [{ winner: 'user-9', didTie: false }] }),
+    JSON.stringify(win.parsed));
+
+  crun(`Carde.reportDraw('pair-2')`);
+  check('draw sends isIntentionalDraw with no games',
+    JSON.stringify(sent[sent.length - 1].parsed) === JSON.stringify(
+      { isDoubleLoss: false, isIntentionalDraw: true, games: [] }));
+
+  crun(`Carde.reportDoubleLoss('pair-3')`);
+  check('double loss sends isDoubleLoss with no games',
+    JSON.stringify(sent[sent.length - 1].parsed) === JSON.stringify(
+      { isDoubleLoss: true, isIntentionalDraw: false, games: [] }));
+
+  // An expired token is the most likely real-world failure.
+  cctx.fetch = () => Promise.resolve({
+    ok: false, status: 401, text: () => Promise.resolve('{}'),
+  });
+  pending.push(
+    crun(`Carde.pairings('r1')`)
+      .then(() => 'no error thrown', e => e.message)
+      .then(m => check('401 explains that the token expired', /expired/i.test(m), m))
+  );
+}
+
 // --- 8. the [hidden] override is still in place ---------------------------
 // #display is display:flex and the standings/pairings lists are display:grid.
 // An author display value beats [hidden]'s UA display:none, so without an explicit
@@ -295,5 +352,7 @@ const js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 for (const sel of toggled)
   check(`${sel} is toggled via .hidden`, js.includes(`$('${sel}').hidden`));
 
-console.log(failures ? `\n${failures} FAILURE(S)\n` : '\nAll checks passed.\n');
-process.exit(failures ? 1 : 0);
+Promise.all(pending).then(() => {
+  console.log(failures ? `\n${failures} FAILURE(S)\n` : '\nAll checks passed.\n');
+  process.exit(failures ? 1 : 0);
+});
