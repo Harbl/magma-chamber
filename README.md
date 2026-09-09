@@ -1,518 +1,417 @@
 # Hextech Ledger
 
-A TV scoreboard, round timer and Swiss pairing system for Riftbound nights — 1v1
-mirrored from the Riftbound event page, or 2v2 and unofficial nights run here.
-Static page, no build step, no dependencies.
+A scoreboard, round timer and pairings display for Riftbound nights, built to run
+on the TV at the shop. It handles 1v1 and 2v2, official events and casual ones.
 
-> **Renamed from Magma Chamber (2026-09-13)**, once it stopped being 2v2-only.
-> The localStorage keys changed with it (`magma-chamber*` → `hextech-ledger*`),
-> so app.js copies the old keys across once on first load and leaves the
-> originals in place as a safety net — a shop mid-season keeps its archive, its
-> logo and its TV text size. Tests cover the copy, including that it never
-> overwrites a newer save. The GitHub repos and the folder on disk still carry
-> the old name; only the product did.
+> This used to be called **Magma Chamber**. Same app, new name. If you already
+> had it running, everything you saved — your archive, your shop logo, your TV
+> text size — comes across on its own the first time you open it.
 
-In 2v2, teams are fixed pairs for the night. An odd number of teams means one
-whole team takes a bye, and no team gets a second bye until every team has had
-one.
-
-## Scoring
-
-Both teams' game scores are recorded for every match. **The leaderboard ranks on
-cumulative game points scored across all rounds** — so a team can rank highly on
-strong scores even in a loss.
-
-Match record (3 points for a win, 1 for a draw) is still tracked and shown, but
-only breaks ties between teams level on game points. Opponent match-win % breaks
-it after that.
-
-A bye awards the configured bye points, set on the Setup tab and adjustable
-mid-event. Defaults to 8.
+Everything below is written in plain English. There is no account to make.
+It runs on a **Mac** or on **Windows** — follow whichever setup section matches
+the computer you are using. After that, the rest of the guide is the same for
+both.
 
 ---
 
-## Testing on Windows
+## One time only — Mac
 
-Double-click **`Hextech Ledger (Windows).bat`**. It starts a local server and
-opens the app. Closing the console window stops it. Node.js is the only
-requirement.
+*(On Windows? Skip to the next section.)*
 
-To try the TV view on a second monitor, press **Open TV Display** and drag that
-window across.
+### 1. Get the folder onto the Mac
 
----
+On this page, click the green **Code** button, then **Download ZIP**.
 
-## Setting up the shop MacBook
+Open your **Downloads** folder and double-click the ZIP. That makes a normal
+folder. (Its name still says `magma-chamber` — that was the old name for this,
+and renaming the download would break the link. The app inside is the right one.)
 
-> Handing this to the shop staff? Point them at the **public repo's README**,
-> which covers Mac and Windows for someone who has never used a terminal.
-> `MAC-SETUP.md` here is the Mac-only original it grew out of.
+Drag that folder onto your **Desktop** so it is easy to find.
 
-Copy this folder to the Mac and double-click **`Hextech Ledger (macOS).command`**.
-It starts a local server and opens the app. Keep the Terminal window open; closing
-it stops the app.
+### 2. Let the Mac run it
 
-Nothing else is required — no Cloudflare account, no hosting, no proxy. Serving
-from `localhost` is the whole trick: the locator API allowlists that hostname, so
-signup import works directly.
+Because you downloaded this from the internet, macOS wants you to confirm it once.
 
-> It must be `http://localhost:8080`, never `http://127.0.0.1:8080`. The API
-> allowlists the hostname, and the two are not interchangeable here.
+Open the folder. Find the file called:
 
-On a stock Mac with nothing installed, this runs on **Perl**, which macOS ships
-and which — unlike the others — is a real binary rather than a stub. The server
-it uses (`tools/serve.pl`) needs only core Perl modules.
+**`Hextech Ledger (macOS).command`**
 
-The launcher prefers Node if it happens to be installed, then falls back to Perl,
-Ruby, PHP and finally Python, asking you to install Node only if it somehow finds
-none of them. Python is deliberately last: `/usr/bin/python3` is a shim that pops
-an Xcode install prompt when the command line tools are missing.
+**Right-click it** (or hold Control and click), then choose **Open**.
 
-If macOS refuses to run it, the file lost its executable bit in transit. In
-Terminal: `chmod +x "Hextech Ledger (macOS).command"`. On first run, Gatekeeper may
-need **right-click → Open** rather than a double-click.
+A warning box appears. Click **Open** again.
 
-### Giving it a Dock icon
+> You only do the right-click step once. Every time after this, a normal
+> double-click works.
 
-`localhost` counts as a secure origin, so Chrome will install it as a real app:
-open `http://localhost:8080`, then **⋮ → Cast, save and share → Install page as
-app**. That gives a Dock icon opening fullscreen with no browser chrome.
+If instead you get a message about *permission denied*, see
+**"If something goes wrong"** at the bottom.
 
-The launcher still has to be running first, so the simplest habit is to keep the
-`.command` on the Desktop and double-click it when opening the shop. Running it
-again when it's already up just reopens the window rather than starting a second
-server.
+Nothing needs installing on a Mac — everything it needs is already there.
 
 ---
 
-## Running a night
+## One time only — Windows
 
-1. Open the app from the Dock and pick **2v2** on the splash. (Tick *Manual*
-   first if it is an unofficial night with no locator event behind it.)
-2. **Setup** — type the event name. Paste the event ID from the locator URL
-   (`…/events/`**`254672`**) and press *Import signups*.
-3. **Teams** — pick two players, optionally type a team name, and *Create team*.
-   Leaving the name blank falls back to "Player A & Player B". *Auto-pair
-   remaining players* does the rest in one press, and *Rename* fixes any of them.
-4. Press **Open TV Display** and drag that window to the TV, then fullscreen it.
-5. **Round** — *Generate pairings*, then *Start timer*. Each match is assigned a
-   table number, counting down the standings so table 1 is the top match. As each
-   match finishes, tap the winning team's name — it turns green, the loser turns
-   red, and the score boxes appear. Enter both teams' game points to record it.
-6. *Finish round & continue* pairs the next round.
-7. At the end of the night, **Setup → Finish & archive event**. That saves the
-   results and downloads a backup file automatically.
+*(On a Mac? Use the section above instead.)*
 
-The control window and the TV window stay in sync. Either can be refreshed
-mid-event without losing anything.
+### 1. Install Node.js
 
-### What the TV shows
+Unlike a Mac, Windows does not come with the piece this app needs to run, so you
+install it once. It is free and takes a couple of minutes.
 
-When a round is paired the TV leads with the **pairings and table numbers**, so
-players can find their seat. After the configured number of minutes — or as soon
-as every result is in — it switches itself to the leaderboard. Set that to `0` on
-the Settings tab to skip the pairings view entirely.
+Go to **https://nodejs.org** and click the big green **LTS** button. Run the file
+it downloads and click **Next** through the installer, leaving every setting the
+way it comes.
 
-The TV window is exactly one screen tall and never grows a scrollbar. If the list
-is longer than the screen it creeps downward, holds at the bottom for a few
-seconds, then snaps back to the top and repeats. Lists that already fit stay put.
+You never have to open Node.js or think about it again — the app uses it in the
+background.
 
-Players who have a Legend assigned show its **card art** beside their name rather
-than the Legend's name — far easier to read across a room. Art is pulled from
-Riot's CDN as a 160px crop, so it costs about 6KB per Legend instead of 1.1MB.
+> On a shop computer that locks things down, you may need whoever looks after it
+> to install this for you.
 
-### Shop branding
+### 2. Get the folder onto the PC
 
-The TV lockup is venue over "x" over app name, and the venue half is set per
-install on the **Settings** tab rather than edited into the markup — several shops
-run their own copy, so nothing about a specific venue is baked into the build.
+On this page, click the green **Code** button, then **Download ZIP**.
 
-Pick **Shop name** for plain text or **Logo image** to upload one. With neither
-set, the shop line and the "x" both drop out and the TV just reads *Hextech
-Ledger*. Picking logo mode and then deleting the logo falls back to the name
-rather than leaving a hole.
+Open your **Downloads** folder, right-click the ZIP, choose **Extract All**, then
+**Extract**. That makes a normal folder. (Its name still says `magma-chamber` — that was the old name for this,
+and renaming the download would break the link. The app inside is the right one.)
 
-Uploads are normalised twice over, because a shop will hand you whatever file it
-happens to have:
+Drag that folder onto your **Desktop** so it is easy to find.
 
-- **On the way in** — anything over 512px on the long edge is redrawn on a canvas
-  at that size and re-encoded as PNG, so transparency survives. SVG passes
-  through untouched; it has no pixel size to shrink and scales by itself.
-- **On the way out** — `.dsp-logo` is a fixed box (`height` in `vh`, capped
-  `max-width`) with `object-fit: contain`, so a wide banner and a square badge
-  both sit correctly and neither can push the header around.
+### 3. Let Windows run it
 
-The data URL is kept in its **own localStorage key** (`hextech-ledger-logo`), not
-in `state`. `state` is re-serialised and broadcast on every keystroke, and pushing
-a few hundred KB through that each time is pointless; the display window reads the
-key directly and only needs a `{logo:true}` ping to re-render.
+Open the folder and find the file called:
 
-`shopName` and `brandMode` *are* in `state`, so they sync the usual way — but both
-`finishEvent()` and *Reset everything* rebuild state from `blank()`, so they get
-carried across by `venue()`. Branding belongs to the venue, not the event.
+**`Hextech Ledger (Windows).bat`**
 
-### Sizing the TV text
+Double-click it.
 
-Layout is in `vw`/`vh` units, so it renders identically at 1080p and 4K — only
-the physical screen size and how far away people sit actually matter.
+The first time, Windows may show a blue box saying **"Windows protected your
+PC"**. Click the small **More info** text, then the **Run anyway** button that
+appears.
 
-Defaults suit a ~46in 1080p set read from about 10–12 feet: team names and point
-totals are comfortable there, and the timer reads from roughly 45 feet.
-
-With the display window focused, **`+`** and **`-`** resize everything except the
-timer, and **`0`** resets. The setting is remembered per screen, so the TV keeps
-its own size and the control laptop is unaffected. Bigger text means fewer teams
-visible at once — about 5 rows at the default, 4 at 125% — but the auto-scroll
-cycles the rest through.
-
-### Legends and stats
-
-Each player can be given a Legend on the Setup tab. It shows beside their name on
-the TV, colour-coded by domain, and feeds the meta breakdown under **Stats**.
-
-**Stats splits into two sub-tabs, because the two things live on different
-time-scales.** Legend meta is only meaningful *per night* — what people brought
-that week — while a player's record only means anything *across* nights. Mixing
-them in one list was the thing to avoid.
-
-**Events** lists every archived night; opening one shows its **top 8** and the
-**legend meta for that night alone**. One night is open at a time and `openEvent`
-is view state, never saved.
-
-**Players** is the lifetime table: matches, W-L-D, win rate, nights played,
-nights won, and every legend they bring, most-played first. `playerHistory()`
-accumulates it from the archived standings, giving both team-mates their team's
-result, the same rule the Results tab uses. Names are the only key that exists
-across events, so they are matched trimmed and case-insensitively; `'?'`
-placeholders are skipped. The bar is matches played, filled by the share won.
-
-It only counts **archived** nights, so a night that was never finished contributes
-nothing, and a mirrored 1v1 night contributes nothing either — UVS owns that
-scoring and none of it is kept here. *Export player records (CSV)* writes the
-same table.
-
-### The meta chart
-
-Per night, domain share is a **donut** and legend counts are **ranked bars**. That
-split is deliberate:
-
-- **Domains are part-to-whole with at most seven categories**, which is what a
-  donut is actually good at. Every segment is named in the key beside it, with a
-  2px surface gap between segments and the night's legend count in the hole.
-- **Legends are magnitude**, often with a dozen entries — so they get one hue and
-  a length, not a dozen more colours. The domain chip beside each name carries
-  identity; the bar carries the number.
-
-A legend with two domains counts under its **first** one, matching what
-`legendColor()` already does elsewhere.
-
-The `--d-*` domain steps were validated with the `dataviz` skill's checker
-against the dark surface: PASS on chroma, CVD separation across *all* pairs (not
-just adjacent), normal-vision separation and contrast. They sit deliberately
-above the dark **lightness band** — this is read across a shop floor, and the
-separation and contrast the band exists to protect are verified by the other
-checks. The game fixes which hue means which domain, so the hues keep their
-identity and were stepped up for a dark screen rather than re-chosen. A test
-holds `DOMAIN_COLOR` in app.js and the `--d-*` variables in app.css in step,
-since SVG presentation attributes cannot take `var()` and the table therefore
-has to exist twice.
-
-### Where files go
-
-**Settings → Where files are saved** takes a folder via `showDirectoryPicker()`,
-and every archive and export is written there instead of Downloads. A directory
-handle cannot be JSON-serialised, so it lives in **IndexedDB**, not localStorage.
-
-Three things can go wrong and all of them fall back to an ordinary download: no
-File System Access API (Firefox, Safari), permission not granted — it is asked
-per session, which is fine since every caller is a button press — or a folder
-that has since moved. Tests cover all three.
-
-Backups themselves live on **Settings**: JSON (re-importable) and CSV (opens in
-Excel). Browser storage can be wiped by clearing site data, so the exports are
-the durable copy — the app writes one automatically each time an event is
-archived.
+> You only do that step once.
 
 ---
 
-## Modes
+## Putting your shop's name on it
 
-The app opens on a **splash screen** asking 1v1 or 2v2, and nothing else is shown
-until one is picked. That choice is what keeps the rest uncluttered:
+Do this once, the first time you open the app. It sticks after that, including
+between events — you will not have to set it again.
 
-| mode | tabs | pairings | scoring | reporting |
-|---|---|---|---|---|
-| **1v1** | Setup, Round, Stats, Settings | UVS | none — UVS's own | players, on UVS |
-| **1v1 manual** | + Results, Standings | this app, Swiss | this app, game points | nowhere — it's unofficial |
-| **2v2** | + Teams | this app, Swiss | this app, game points | typed in from the Results tab |
+Click **Shop settings** on the first screen the app shows you — or open the
+**Settings** tab once you are inside. Find **Shop branding** and pick one of the
+two:
 
-### Manual override
+**Shop name** — type your shop's name in the box underneath. It appears on the TV
+above the Hextech Ledger name.
 
-A **Manual** checkbox on the splash — and on Setup, to change your mind later —
-says this is an unofficial night: there is no locator event to read from, so the
-app runs the whole thing itself. It is what a shop uses for an ad-hoc side event.
+**Logo image** — click **Choose logo image…** and pick a picture file from your
+computer. PNG, JPG and SVG all work.
 
-**It is a 1v1 idea only.** 2v2 pairs locally either way, so the only thing a
-toggle could change there is whether the signup import is offered, which is not
-worth a switch. `setMode()` forces `manual = false` for 2v2 rather than trusting
-the caller, and the Setup checkbox is `data-only="1v1"`.
+Don't worry about the size of the picture. Whatever you give it gets resized to
+fit the space on the TV, so a huge photo and a small icon both come out looking
+right. A logo with a see-through background stays see-through.
 
-**Manual 1v1 reuses the team machinery with one player per team.** `syncSoloTeams()`
-gives every player a team of one, named after them, just before pairing. That is
-the whole implementation — pairings, tables, scoring, standings, the Results list
-and archiving all work unchanged, and there is no second scoring path to keep in
-step. The Teams tab stays hidden because there is nothing to build.
+A preview appears under the buttons showing roughly how it will look on the TV.
+To go back, click **Remove logo**, or just switch back to **Shop name**.
 
-Flipping it mid-event clears the round, exactly like switching mode, and it asks
-first if a round exists.
+> Skip this entirely and the TV simply shows *Hextech Ledger* on its own. Nothing
+> breaks.
 
-### How the gating works
+The **Settings** tab is also where the rest of the one-off shop stuff lives: how
+many tables you have, how long the pairings stay up on the TV before it flips to
+the leaderboard, and the backup buttons.
 
-`MODE_TABS` lists the tabs per mode (`'1v1'`, `'1v1-manual'`, `'2v2'`). Individual
-controls declare their own relevance with **`data-only`** in the markup, so
-`applyMode()` never has to know about each one. The value is a list of tokens and
-**every one must be active**; `viewTokens()` returns three:
+### Where your files get saved
 
-| token | meaning |
-|---|---|
-| `1v1` / `2v2` | the mode itself |
-| `official` / `manual` | whether a real locator event sits behind this night |
-| `mirror` / `local` | who owns the pairings |
+By default, anything the app saves — the backup it makes at the end of each
+night, and any spreadsheet you export — goes to your **Downloads** folder like
+any other download.
 
-So bye points are `data-only="local"` (2v2 *and* manual 1v1), *Refresh from UVS*
-is `data-only="mirror"`, signup import is `data-only="official"`, and the timer
-buttons are deliberately ungated since every kind of night needs a clock.
+If you would rather keep them together, open **Settings → Where files are saved**
+and click **Choose folder…**. Pick any folder you like and everything lands there
+from then on. It remembers the folder, but your browser will ask you to confirm
+it once each time you start the app up — that is the browser being careful, not
+something going wrong. Click **Allow**.
 
-**The mode sets `uvsMode`** rather than leaving a second switch to keep in
-agreement: only an *official* 1v1 is the UVS mirror. The old checkbox is gone.
+**Use Downloads** puts it back to normal.
 
-Switching clears `state.rounds` and any mirrored rows, because a round from one
-mode means something different in the other. Re-picking the same mode is not a
-switch and leaves the event alone. If the open tab is hidden by the new mode it
-falls back to the first tab that mode has, rather than leaving a blank panel.
+> This needs **Chrome** or **Edge**. In other browsers the button will tell you
+> so, and files keep going to Downloads.
 
-`state.mode` starts `null`, so **an existing install lands on the splash once**
-after updating, then remembers the choice. Archiving an event and *Reset
-everything* both keep the mode — otherwise finishing a night would throw you back
-to the splash.
+---
 
-### The Settings tab
+## Every event night
 
-Everything that belongs to the shop rather than to tonight lives on **Settings**:
-branding, table count, how long pairings hold the TV, and the backup
-export/import. It is available in every mode, and reachable from the splash
-itself via *Shop settings* — that sets a transient `settingsOnly` flag, shows the
-Settings tab alone with a *Back* button, and is deliberately **not** saved, since
-it is a detour rather than a state to come back up in.
+### 1. Start it
 
-> The test harness registers real nodes for the `querySelectorAll` selectors it
-> needs. Without that, every check on tab or setting visibility passes trivially
-> against an empty list — the same trap the no-op `classList` stub created.
+Double-click the launcher in the folder:
 
-### Two things the Carde removal took with it
+- On a Mac — **`Hextech Ledger (macOS).command`**
+- On Windows — **`Hextech Ledger (Windows).bat`**
 
-Deleting the Carde block in `35c5dc3` also deleted the handlers that happened to
-sit after it — **Finish & archive, Reset everything, all three exports and the
-backup import had been dead buttons ever since** — and it emptied the middle of
-the team-list template, leaving a stray `</label>` where the team name should be.
-Both are restored. Two tests now guard the class of mistake:
+A black text window opens. That is normal, it is the app running.
+**Leave that window open.** Closing it turns the app off.
 
-- *every button in the markup is wired up* — walks every `<button id>` in
-  `index.html` and demands a matching `.onclick`/`.onchange` in `app.js`. A dead
-  button looks exactly like a working one, which is why this went unnoticed.
-- *the team list still prints the team name* — the template must still contain
-  `esc(t.name)`.
+Your web browser opens automatically to the app.
 
-Worth remembering when deleting a block: check what followed it, not just what
-was in it.
+### 2. Put the scoreboard on the TV
 
-## Carde.io was removed entirely (2026-09-13)
+In the app, click **Open TV Display**.
 
-`carde.js`, the tab, the token auth, the reporting client and all their tests are
-**deleted**, not hidden. Two things settled it:
+A second window opens. Drag that window onto the TV, then make it fill the whole
+screen:
 
-1. **There is no publicly reachable Carde.io API for this.** Auth is Auth0 with no
-   public login, and reporting requires a pairing that already exists in Carde.
-2. **It isn't needed.** The shop can set the Carde event to **multiplayer
-   unpaired**, which skips pairings entirely and takes a plain win/loss per
-   player. Nobody has to be dropped from the event, every player's match data
-   still reaches Riot, and the only cost is manual entry between rounds.
+- On a Mac — press **Control + Command + F**
+- On Windows — press **F11**
 
-That manual entry is what the **Results tab** exists to make fast. Background on
-the Carde/UVS relationship is in the `reference-cardeio-api` memory if it ever
-comes back.
+Leave the first window on the laptop. That is the one you type into.
 
-## The Results tab
+### 3. Pick the kind of night
 
-`roundResults(n)` returns every player in a round with their own result,
-**sorted alphabetically, case-insensitively** — a multiplayer-unpaired event is
-entered player by player, and hunting for names in pairing order is where the
-organiser's time goes.
+The app asks first: **1v1** or **2v2**. Click one.
 
-Both team-mates inherit their team's result; a bye is a win for both. An
-unreported match yields `null` and renders as *not reported* rather than silently
-reading as a loss.
+That choice is the whole setup. The app only shows you the tabs and settings that
+kind of night actually needs, so there is nothing extra to ignore.
 
-Rows are colour-coded so the eye can run down the list while typing into another
-window. **Copy as text** puts one `Name — Result` per line on the clipboard, and
-falls back to a `.txt` download when the clipboard is blocked — it needs a secure
-context and permission, neither of which is guaranteed.
+- **1v1** — the Riftbound page runs it, the app shows it. See below.
+- **2v2** — the app runs it. See below.
 
-## UVS 1v1 mirror
+You only pick once; it remembers. To change later, go to **Setup** and use the
+**Switch to 1v1** / **Switch to 2v2** button at the bottom.
 
-For **1v1** nights — Nexus Nights, skirmishes, store events — UVS does the
-pairing and the players report their own results. There is nothing for this app
-to score or push, so it is purely a display and a clock. Tick **Use the UVS event
-page** and leave it on *1v1 — just show it*.
+**Running a 1v1 that isn't on the Riftbound page?** Tick the **Manual 1v1** box
+under the two choices first. That tells the app there is no event to read from,
+so it runs the whole thing itself — pairings, table numbers, results and points.
+Use it for casual side events and anything you are not putting on the Riftbound
+page. You can tick or untick it later on the **Setup** tab, but doing that clears
+the round you are in the middle of, so it asks first.
 
-Nothing is ever written back to UVS. Every request is a GET.
+> 2v2 has no such box, because the app runs those pairings either way.
 
-The locator has an undocumented but fully public TV feed keyed on the **event id
-alone** — no round id, no login, no token:
+### 4. Run the night
 
-| endpoint | gives |
-|---|---|
-| `/api/v2/player/events/{id}/tv/` | event name, lifecycle, round list with per-round status |
-| `/api/v2/player/events/{id}/tv/matches/` | current round: tables, byes, players, winners |
-| `/api/v2/player/events/{id}/tv/standings/` | rank, record, match points |
-| `/api/v2/player/events/{id}/tv/roster/` | check-in list |
+Follow whichever section below matches what you picked, then at the end of the
+night use **Setup → Finish & archive event**.
 
-The id is whatever was used for *Import signups*, kept in `state.eventId`, so it
-is never pasted twice. CORS is the same allowlist as the rest of the API, so this
-works from `localhost` with no proxy. Polls every 30s to pick up results as
-players report them on their phones.
+### 5. Shut down
 
-The bundle ships **Zod schemas** for every response, so field lists were read off
-rather than guessed — grep `/_next/static/chunks/` for a field name and read the
-surrounding `il.z.object({...})`.
+Close the black text window. That's it.
 
-### How it hangs together
+---
 
-The clock lives on a round object, so `applyUvs()` keeps an otherwise empty
-`bareRound()` around purely to own the timer, while `state.uvsPairings` and
-`state.uvsStandings` hold the mirrored rows. Refreshing the same round number
-leaves the clock alone, so a poll cannot reset the TV mid-round; a new round
-number starts a fresh one.
+## 1v1 nights — just show the Riftbound page
 
-`displayMode()` and `allIn()` treat "everyone has reported" as the cue to swap to
-standings, whichever source is supplying the rows.
+For Nexus Nights, skirmishes and store events, everything already happens on the
+Riftbound event page. It makes the pairings, and players report their own results
+on their phones.
 
-## Overtime clock
+For those nights the app doesn't need to do any of that. It just puts the
+pairings, the standings and a big clock on the TV.
 
-`state.overtime` (minutes, 0 = off) on the Setup tab. `clock()` returns
-`{ms, phase}` and owns the whole thing:
+Pick **1v1** when the app asks.
 
-| phase | when |
-|---|---|
-| `idle` | no round |
-| `paused` | clock stopped |
-| `main` | normal time; `warn` under 5 min, `crit` under 1 min |
-| `overtime` | past zero, counting `state.overtime` down in hard red |
-| `done` | past zero with overtime off or spent |
+1. On the **Setup** tab, put the event ID in and click **Import signups** once.
+   That is how the app knows which event you are running.
+2. Go to the **Round** tab. The pairings and table numbers appear and go straight
+   up on the TV.
+3. Press **Start timer** for the round clock.
 
-`remainingMs()` is unchanged — it still clamps at zero and drives the
-pairings/standings switch, which should not care about overtime.
+When the next round is paired, click **Refresh from UVS**. The app also checks by
+itself every half a minute, so results show up without you touching anything.
 
-## The two repositories
+You don't make teams and you don't type in any scores. The standings on the TV are
+the ones the Riftbound page is already keeping.
 
-| | branch | contains |
-|---|---|---|
-| **hextech-ledger-private** | `main` | everything — this README, the tests, `worker/` |
-| **hextech-ledger** (public) | `main` | the app only, with a plain-English README for shop staff |
+> **Nothing is ever sent to the Riftbound page.** The app only reads it, so you
+> cannot break your event from in here.
 
-`main` tracks `private/main`, so a bare `git push` updates the private repo.
-The public repo is fed from a local `public` branch that sits one commit ahead of
-`main`. That commit swaps in the plain-English README and drops the technical
-files: `MAC-SETUP.md`, `worker/`, `tools/logic-test.js` and
-`tools/fetch-legends.js`.
+### An unofficial 1v1 night
 
-**The public README only exists on the `public` branch** — it started as
-`MAC-SETUP.md` but has since diverged, covering Windows setup and UVS mode as
-well. Edit it there and `commit --amend` onto the strip-down commit; there is no
-copy on `main` to keep in sync.
+If you ticked **Manual**, there is no Riftbound event to read from, so the app
+runs it instead. Add the players by hand on **Setup**, then **Generate pairings**
+on the Round tab — each player is paired against another, given a table, and you
+tap the winner and type the points the same way a 2v2 night works. A **Standings**
+tab appears for the leaderboard.
 
-To publish new work to the public repo:
+---
 
-```bash
-git checkout public
-git rebase main                    # replay the strip-down commit onto the new work
-git push -f origin public:main     # force needed: the rebase rewrites that commit
-git checkout main
+## 2v2 nights — the app runs it
+
+The Riftbound page has no way to run a 2v2 match, so for team nights the app does
+the work: pairings, table numbers, results and points.
+
+Pick **2v2** when the app asks.
+
+1. **Setup** — put the event ID in and click **Import signups** to pull in
+   everyone who signed up. You can also add players by hand.
+2. **Teams** — put the players into pairs.
+3. **Round** — **Generate pairings**, then **Start timer**. Tap the winning team,
+   then type both teams' points.
+4. **Finish round & continue** when the round is done.
+
+### Reporting a 2v2 night
+
+Set the event up as **multiplayer unpaired**. That skips pairings entirely and
+just takes a win or a loss for each player, which is exactly what a 2v2 night
+produces — and it means **nobody has to be dropped from the event**, so everyone's
+match data still gets recorded.
+
+Between rounds, open the **Results** tab. It lists every player **in alphabetical
+order** with their own win or loss, so you can go straight down the list without
+hunting for names. Both players on a team get their team's result, and a bye
+counts as a win for both.
+
+Anything not finished yet says **not reported** rather than showing a loss, so you
+can see at a glance what is still outstanding.
+
+**Copy as text** puts the whole list on your clipboard if you would rather paste
+it somewhere.
+
+---
+
+## The Stats tab
+
+Two halves, with a switch at the top.
+
+### Events
+
+Every night you have finished and archived, newest first. **Click one to open
+it** and you get:
+
+- the **top 8** for that night, and
+- the **legend meta for that night** — a ring showing the split of domains
+  people brought, and a bar for each legend showing how many people played it.
+
+Meta is kept per night on purpose. What people brought last Tuesday is a real
+thing; averaging it with three months of other nights is not.
+
+### Players
+
+A running record for everyone who has ever played at your shop: matches won and
+lost, win rate, how many nights they have turned up to, how many they have won,
+and the legends they bring. The bar beside each name is how many matches they
+have played, with the filled part being the share they won.
+
+It fills in by itself — every time you use **Finish & archive event**, that
+night's results get added to everyone's record. Both players on a 2v2 team get
+the team's result.
+
+Nights you never finish and archive don't count, and neither do 1v1 nights the
+Riftbound page was running, since it keeps those results rather than the app.
+
+**Export player records (CSV)** saves the whole table as a spreadsheet.
+
+---
+
+## Overtime
+
+On the **Setup** tab there is **Overtime after time is called**. Set it to how
+many extra minutes you give tables still playing when time runs out.
+
+When the round clock reaches zero, instead of just stopping, it turns **red** and
+counts the overtime down. Leave it at `0` if you don't use overtime and the clock
+behaves exactly as it did before.
+
+---
+
+## Making the text bigger or smaller on the TV
+
+Click on the TV window once, then press the **+** or **−** key.
+Press **0** to put it back to normal.
+
+The computer remembers this, so you only need to do it once.
+
+---
+
+## If something goes wrong
+
+**The black window says "Node.js was not found" (Windows)**
+
+Step 1 of the Windows setup was skipped, or did not finish. Install it from
+**https://nodejs.org** using the green **LTS** button, then restart the computer
+and double-click the launcher again.
+
+**Windows shows a blue "Windows protected your PC" box**
+
+Click **More info**, then **Run anyway**. Windows shows this for anything
+downloaded from the internet, and it only asks once.
+
+**"Permission denied" when you double-click (Mac)**
+
+The file lost a setting when it was unzipped. Fix it once:
+
+1. Open **Terminal** (press Command + Space, type `Terminal`, press Return).
+2. Type this exactly, including the space at the end:
+   ```
+   chmod +x 
+   ```
+3. Drag the `Hextech Ledger (macOS).command` file into the Terminal window.
+   It fills in the location for you.
+4. Press **Return**. Nothing appears to happen — that means it worked.
+5. Go back and double-click the file again.
+
+**The page says it can't connect**
+
+The black text window probably got closed. Double-click the launcher again.
+
+**"Import signups" says it can't find the event**
+
+Check that you used only the number from the web address, with no extra
+characters. Also make sure the computer is on the internet.
+
+**I picked the wrong kind of night**
+
+Go to **Setup** and use **Switch to the other kind of night** at the bottom. It
+asks first, because switching clears the round in progress — the two run too
+differently to carry one over.
+
+**There's no Teams or Results tab**
+
+You are set up for a **1v1** night, which doesn't use them. Switch to 2v2 on the
+Setup tab if that's wrong.
+
+**There's no "Generate pairings" button**
+
+The Riftbound page is making the pairings for this night, so the app won't make
+its own. If this is an unofficial night that isn't on the Riftbound page, tick
+**Manual 1v1** on the Setup tab and the button comes back.
+
+**The app keeps asking to use my folder**
+
+Browsers make a page re-confirm folder access each time they start up. Click
+**Allow** and it will not ask again until next time you open the app. If you
+would rather not be asked, use **Settings → Use Downloads**.
+
+**A night shows no legend meta**
+
+Nobody had a legend set on the Setup tab that night. Legends are optional, and
+the ring only draws what was actually recorded.
+
+**Someone's missing from Player records**
+
+Only nights you finished with **Finish & archive event** are counted, and 1v1
+nights run from the Riftbound page aren't counted at all. A player also has to be
+spelled the same way each night to be recognised as the same person.
+
+**The Results tab says "not reported" for someone**
+
+That match hasn't been finished in the app yet. Go to the **Round** tab, tap the
+winning team and enter both teams' points, and the Results tab will fill in.
+
+**The browser didn't open by itself**
+
+Open your browser and type this into the address bar:
+
+```
+localhost:8080
 ```
 
-The force push only ever rewrites the public mirror, never `main` and never the
-private repo. If the rebase conflicts it will be in `README.md` — keep the
-`public` branch's version, which is the plain-English one.
+Use `localhost`, not anything else — the import feature depends on it.
 
-## Maintenance
+**Nothing works and you need it running now**
 
-Refresh the Legend list after a new set releases:
-
-```bash
-node tools/fetch-legends.js
-```
-
-Run the scoring and pairing tests:
-
-```bash
-node tools/logic-test.js
-```
-
-## Look and feel
-
-Piltover hardware rather than an app. **Every colour in the build comes from the
-`:root` block at the top of `app.css`** — nothing downstream hardcodes a hex — so
-re-theming is one block.
-
-| role | token | value |
-|---|---|---|
-| base / plate | `--bg`, `--bg-2`, `--panel` | `#0f141c`, `#131822`, `#18202c` |
-| primary, live things | `--cyan`, `--cyan-soft` | `#00e5ff`, `#38bdf8` |
-| secondary, framing | `--brass`, `--brass-hi` | `#ca8a04`, `#e0a92a` |
-| status | `--win`, `--warn`, `--loss` | `#10b981`, `#f59e0b`, `#ef4444` |
-
-Status colours are **reserved**: they mean won / running out / lost, and are
-never reused as a category colour.
-
-Corners are **chamfered, not rounded** — `--r: 2px` for the radius and a
-`clip-path` cut for the machined edge. Row separation is a thin brass thread
-(control panel) or a glowing cyan seam (TV), rather than a gap alone. Section
-headers sit on a brass rule that threads out toward one edge instead of a flat
-line across.
-
-On the TV, **rank 1 is the only cyan row**; everything else is brass or neutral,
-so the leader reads instantly from the far wall.
-
-## Layout
-
-```
-index.html      markup for both the control panel and the TV display
-app.js          state, scoring, Swiss pairings, timer, import/export
-app.css         theming; display view is sized in vw/vh for TV legibility
-sw.js           offline cache, so dropped wifi doesn't kill the scoreboard
-data/legends.json   49 Legends with domains and card art
-tools/serve.js      local static server (Node), used when Node is available
-tools/serve.pl      same in core-only Perl, for a stock Mac with nothing installed
-tools/          legend fetcher and the logic test suite
-worker/         optional CORS proxy, only if you ever host this on the web
-```
-
-## If you ever host it instead
-
-Running locally is the recommended setup and needs no proxy. A *hosted* copy is
-different: the locator API rejects browser requests from any origin except
-`localhost` and its own domain, so signup import would break.
-
-`worker/` covers that case. Deploy it with `npx wrangler deploy`, then set
-`PROXY` near the top of `app.js` to the `https://….workers.dev` URL it prints.
-Leave `PROXY` empty for local use.
-
-## Notes on the data
-
-Signups, event details and round length come from the Riftbound locator's own
-API (`api.cloudflare.riftbound.uvsgames.com/hydraproxy`), which is public and
-unauthenticated. Legend data comes from [Riftcodex](https://riftcodex.com).
-
-Scoring is owned entirely by this app. The locator runs 2v2 nights as ordinary
-individual events (`is_team_event: false`), so it has no concept of team
-standings to read back — which is the reason this exists.
+Everything except *Import signups* works without the internet. You can add
+players by hand on the Setup tab and run the whole night that way.
