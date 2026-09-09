@@ -260,6 +260,27 @@ if (!bootErr) {
   check('autoScroll() runs clean', scrollErr === null, scrollErr && scrollErr.message);
 }
 
+// --- 7c. per-player results for external systems --------------------------
+console.log('\nplayer results export:');
+seed(4);
+run(`state.players.find(p=>p.id==='p1a').legend = 'Jinx - Loose Cannon';
+     state.rounds.push({n:1, pairings:[
+       {a:'t1', b:'t2', winner:'a', pa:11, pb:8},
+       {a:'t3', b:'t4', winner:'draw', pa:9, pb:9}], endsAt:0, pausedMs:0, running:false});`);
+const pr = run('playerResults()');
+check('one row per player, not per team', pr.length === 8, `got ${pr.length}`);
+const p1a = pr.find(r => r.player === 'P1A'), p1b = pr.find(r => r.player === 'P1B');
+check('both team-mates inherit the team record',
+  p1a && p1b && p1a.w === 1 && p1b.w === 1 && p1a.gamePoints === 11 && p1b.gamePoints === 11);
+check('losing side recorded as a loss',
+  pr.find(r => r.player === 'P2A').l === 1 && pr.find(r => r.player === 'P2A').gamePoints === 8);
+check('draw recorded for both drawn teams',
+  pr.find(r => r.player === 'P3A').d === 1 && pr.find(r => r.player === 'P4B').d === 1);
+check('legend carried through', p1a.legend === 'Jinx - Loose Cannon');
+check('CSV header names the external fields',
+  /player,team,legend,wins,losses,draws,match_points,game_points/.test(
+    run('playerResultsCSV()').split('\n')[0].replace(/"/g, '')));
+
 // --- 8. the [hidden] override is still in place ---------------------------
 // #display is display:flex and the standings/pairings lists are display:grid.
 // An author display value beats [hidden]'s UA display:none, so without an explicit

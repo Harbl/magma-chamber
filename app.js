@@ -454,6 +454,35 @@ function download(filename, text, type) {
   URL.revokeObjectURL(url);
 }
 
+// Per-player records, derived by giving both team-mates their team's results.
+// Carde.io (and the locator) model events as individual players with no team
+// concept, so this is the shape any external system can actually accept.
+function playerResults() {
+  const rec = records();
+  const rows = [];
+  for (const t of state.teams) {
+    const r = rec[t.id];
+    if (!r) continue;
+    for (const id of t.players) {
+      const p = player(id);
+      if (!p) continue;
+      rows.push({
+        player: p.name, team: t.name, legend: p.legend || '',
+        w: r.w, l: r.l, d: r.d, matchPoints: r.pts, gamePoints: r.gp,
+      });
+    }
+  }
+  return rows.sort((a, b) => b.gamePoints - a.gamePoints || a.player.localeCompare(b.player));
+}
+
+function playerResultsCSV() {
+  const head = ['player', 'team', 'legend', 'wins', 'losses', 'draws', 'match_points', 'game_points'];
+  const rows = playerResults().map(r =>
+    [r.player, r.team, r.legend, r.w, r.l, r.d, r.matchPoints, r.gamePoints]);
+  return [head, ...rows]
+    .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+}
+
 function toCSV() {
   const rows = [['event', 'date', 'place', 'team', 'players', 'legends',
     'game_points', 'wins', 'losses', 'draws', 'match_points']];
@@ -646,6 +675,10 @@ if (!isDisplay) {
 
   $('#btn-export').onclick = () => download('riftbound-all-events.json', JSON.stringify(state.archive, null, 2), 'application/json');
   $('#btn-export-csv').onclick = () => download('riftbound-all-events.csv', toCSV(), 'text/csv');
+  $('#btn-export-players').onclick = () => {
+    if (!state.teams.length) return msg('#stats-msg', 'No teams in the current event.', 'err');
+    download('magma-chamber-player-results.csv', playerResultsCSV(), 'text/csv');
+  };
   $('#btn-import-file').onclick = () => $('#file-input').click();
   $('#file-input').onchange = async e => {
     const file = e.target.files[0];
