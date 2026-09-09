@@ -45,9 +45,14 @@ signup import works directly.
 > It must be `http://localhost:8080`, never `http://127.0.0.1:8080`. The API
 > allowlists the hostname, and the two are not interchangeable here.
 
-The launcher uses whichever runtime the Mac already has — Node, the Ruby that
-ships with macOS, PHP, or Python — and only asks you to install Node if it finds
-none of them.
+On a stock Mac with nothing installed, this runs on **Perl**, which macOS ships
+and which — unlike the others — is a real binary rather than a stub. The server
+it uses (`tools/serve.pl`) needs only core Perl modules.
+
+The launcher prefers Node if it happens to be installed, then falls back to Perl,
+Ruby, PHP and finally Python, asking you to install Node only if it somehow finds
+none of them. Python is deliberately last: `/usr/bin/python3` is a shim that pops
+an Xcode install prompt when the command line tools are missing.
 
 If macOS refuses to run it, the file lost its executable bit in transit. In
 Terminal: `chmod +x "Magma Chamber (macOS).command"`. On first run, Gatekeeper may
@@ -149,7 +154,8 @@ app.js          state, scoring, Swiss pairings, timer, import/export
 app.css         theming; display view is sized in vw/vh for TV legibility
 sw.js           offline cache, so dropped wifi doesn't kill the scoreboard
 data/legends.json   49 Legends with domains and card art
-tools/serve.js      local static server used by the Windows launcher
+tools/serve.js      local static server (Node), used when Node is available
+tools/serve.pl      same in core-only Perl, for a stock Mac with nothing installed
 tools/          legend fetcher and the logic test suite
 worker/         optional CORS proxy, only if you ever host this on the web
 ```

@@ -27,7 +27,14 @@ if command -v node >/dev/null 2>&1; then
   open_soon &
   exec node tools/serve.js "$PORT"
 
-# Ruby ships with macOS and its bundled 2.6 still includes WEBrick.
+# Perl ships with macOS and is a real binary, not a stub. This is the path a
+# stock Mac with nothing installed takes. tools/serve.pl uses only core modules.
+elif [ -x /usr/bin/perl ]; then
+  open_soon &
+  exec /usr/bin/perl tools/serve.pl "$PORT"
+
+# Ruby was deprecated in Catalina, but the bundled 2.6 still has WEBrick where
+# it survives.
 elif [ -x /usr/bin/ruby ]; then
   open_soon &
   exec /usr/bin/ruby -run -e httpd . -p "$PORT" -b 127.0.0.1
@@ -36,8 +43,8 @@ elif command -v php >/dev/null 2>&1; then
   open_soon &
   exec php -S "localhost:$PORT"
 
-# Last: python3 may be a stub that pops an Xcode install prompt, so it goes below
-# the runtimes that either work or are cleanly absent.
+# Last: /usr/bin/python3 is a stub that pops an Xcode install prompt when the
+# command line tools are missing, so only reach for it if nothing else worked.
 elif command -v python3 >/dev/null 2>&1; then
   open_soon &
   exec python3 -m http.server "$PORT" --bind 127.0.0.1
