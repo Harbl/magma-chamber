@@ -1,4 +1,4 @@
-# Riftbound 2v2 Scoreboard
+# Magma Chamber
 
 A TV scoreboard, round timer and Swiss pairing system for Riftbound 2v2 nights.
 Static page, no build step, no dependencies.
@@ -16,17 +16,35 @@ Match record (3 points for a win, 1 for a draw) is still tracked and shown, but
 only breaks ties between teams level on game points. Opponent match-win % breaks
 it after that.
 
-A bye awards the configured bye points, set on the Setup tab. It defaults to 8;
-change it if your shop treats byes differently.
+A bye awards the configured bye points, set on the Setup tab and adjustable
+mid-event. Defaults to 8.
 
 ---
 
-## Part 1 — one-time setup (Jake)
+## Testing on Windows
+
+Double-click **`Magma Chamber (Windows).bat`**. It starts a local server and
+opens the app. Closing the console window stops it. Node.js is the only
+requirement.
+
+Signup import works locally with no further setup — the locator API allows
+browser requests from `localhost`, so the page calls it directly. The Cloudflare
+Worker below is only needed once the app is hosted somewhere else.
+
+> Use `http://localhost:8080`, not `http://127.0.0.1:8080`. The API allowlists
+> the hostname `localhost` specifically, and the two are not interchangeable here.
+
+To try the TV view on a second monitor, press **Open TV Display** and drag that
+window across.
+
+---
+
+## Deploying for the shop (macOS)
 
 ### 1. Deploy the signup proxy
 
-The locator API only accepts browser requests from `localhost` and its own domain,
-so a hosted page can't call it directly. The Worker in `worker/` makes that request
+A hosted page can't call the locator API directly — only `localhost` and the
+locator's own domain are allowed. The Worker in `worker/` makes that request
 server-side. It proxies two read-only endpoints and nothing else.
 
 ```bash
@@ -38,19 +56,15 @@ Copy the `https://….workers.dev` URL it prints.
 
 ### 2. Point the app at it
 
-In `app.js`, set the constant on line 10:
+In `app.js`, set the constant near the top:
 
 ```js
-const PROXY = 'https://riftbound-scoreboard-proxy.you.workers.dev';
+const PROXY = 'https://magma-chamber-proxy.you.workers.dev';
 ```
-
-Leave it as `''` and everything still works — you just add players by hand
-instead of importing them.
 
 ### 3. Publish
 
 Push to GitHub, then **Settings → Pages → Deploy from branch → main / root**.
-Note the published URL.
 
 ### 4. Make the shop's icon
 
@@ -60,7 +74,7 @@ with no browser chrome. No Terminal, ever.
 
 ---
 
-## Part 2 — running a night (the shop)
+## Running a night
 
 1. Open the app from the Dock.
 2. **Setup** — type the event name. Paste the event ID from the locator URL
@@ -112,8 +126,9 @@ app.js          state, scoring, Swiss pairings, timer, import/export
 app.css         theming; display view is sized in vw/vh for TV legibility
 sw.js           offline cache, so dropped wifi doesn't kill the scoreboard
 data/legends.json   49 Legends with domains and card art
+tools/serve.js      local static server used by the Windows launcher
 tools/          legend fetcher and the logic test suite
-worker/         Cloudflare Worker CORS proxy for signup import
+worker/         Cloudflare Worker CORS proxy, for hosted deployments only
 ```
 
 ## Notes on the data

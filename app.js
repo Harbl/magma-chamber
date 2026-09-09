@@ -1,15 +1,25 @@
-/* Riftbound 2v2 Scoreboard
+/* Magma Chamber — Riftbound 2v2 scoreboard
  *
  * Two windows share one state: the control panel (laptop) and the display (TV).
  * State lives in localStorage and changes are pushed over BroadcastChannel, so
  * either window can be refreshed mid-event without losing anything.
  */
 
-// Set this after deploying worker/index.js. Without it, signup import is disabled
-// but everything else still works.
+// Set this after deploying worker/index.js. Only needed for a hosted deployment.
 const PROXY = '';
 
-const KEY = 'riftbound-scoreboard';
+const LOCATOR = 'https://api.cloudflare.riftbound.uvsgames.com/hydraproxy';
+
+// The locator API allows browser requests from localhost, so running locally can
+// call it directly. Anywhere else needs the Worker to relay the request.
+// Note it must be "localhost" -- 127.0.0.1 is not on their allowlist.
+function apiBase() {
+  if (PROXY) return PROXY.replace(/\/$/, '');
+  if (location.hostname === 'localhost') return LOCATOR;
+  return null;
+}
+
+const KEY = 'magma-chamber';
 const WIN = 3, DRAW = 1;               // match points
 const chan = new BroadcastChannel(KEY);
 const isDisplay = new URLSearchParams(location.search).has('display');
@@ -196,7 +206,7 @@ function render() {
 }
 
 function renderDisplay() {
-  $('#dsp-event').textContent = state.name || 'Riftbound 2v2';
+  $('#dsp-event').textContent = state.name || 'Magma Chamber';
   const r = currentRound();
   $('#dsp-round').textContent = r ? `Round ${r.n}` : 'Waiting to start';
 
@@ -341,8 +351,8 @@ function msg(sel, text, kind = '') {
 // ---------------------------------------------------------------- import
 
 async function importSignups(id) {
-  if (!PROXY) throw new Error('Signup import needs the Cloudflare Worker. Set PROXY at the top of app.js.');
-  const base = PROXY.replace(/\/$/, '');
+  const base = apiBase();
+  if (!base) throw new Error('Signup import needs the Worker deployed and PROXY set in app.js (or run the app from localhost).');
   const ev = await fetch(`${base}/api/v2/events/${id}/`).then(r => r.ok ? r.json() : Promise.reject(new Error(`Event ${id} not found`)));
 
   const names = [];

@@ -1,7 +1,7 @@
 {
-  "name": "Riftbound 2v2 Scoreboard",
-  "short_name": "Riftbound 2v2",
-  "description": "Team scoreboard, round timer and standings for Riftbound 2v2 nights.",
+  "name": "Magma Chamber",
+  "short_name": "Magma Chamber",
+  "description": "Riftbound 2v2 team scoreboard, round timer and standings.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
