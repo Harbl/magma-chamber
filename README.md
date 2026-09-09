@@ -173,6 +173,32 @@ double loss. Reported pairings are marked, and the list refreshes after each pus
 Pair the round **in Carde.io first** — reporting needs Carde's own pairing IDs,
 which only exist once Carde has paired.
 
+## The two repositories
+
+| | branch | contains |
+|---|---|---|
+| **magma-chamber-private** | `main` | everything — this README, the tests, `worker/`, the Carde.io notes |
+| **magma-chamber** (public) | `main` | the app only, with a plain-English README for shop staff |
+
+`main` tracks `private/main`, so a bare `git push` updates the private repo.
+The public repo is fed from a local `public` branch that sits one commit ahead of
+`main`. That commit swaps in the plain-English README and drops the technical
+files: `MAC-SETUP.md` (it becomes the README there), `worker/`,
+`tools/logic-test.js` and `tools/fetch-legends.js`.
+
+To publish new work to the public repo:
+
+```bash
+git checkout public
+git rebase main                    # replay the strip-down commit onto the new work
+git push -f origin public:main     # force needed: the rebase rewrites that commit
+git checkout main
+```
+
+The force push only ever rewrites the public mirror, never `main` and never the
+private repo. If the rebase conflicts it will be in `README.md` — keep the
+`public` branch's version, which is the plain-English one.
+
 ## Maintenance
 
 Refresh the Legend list after a new set releases:
