@@ -10,6 +10,7 @@
   --dim: #8d9ab5;
   --gold: #c9a227;
   --gold-hi: #f0cf6a;
+  --magma: #f2833c;
   --rift: #5ad2e6;
 
   /* Riftbound domains */
@@ -82,7 +83,7 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   font-size: calc(2vw * var(--tv));
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: var(--ink);
+  color: var(--gold-hi);
   white-space: nowrap;
 }
 
@@ -115,7 +116,8 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   font-size: calc(2vw * var(--tv));
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: var(--gold-hi);
+  color: var(--magma);
+  text-shadow: 0 0 1.6vw rgba(242, 131, 60, 0.4);
   white-space: nowrap;
 }
 
