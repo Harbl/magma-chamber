@@ -625,6 +625,43 @@ if (isDisplay) {
   $('#display').hidden = false;
   setInterval(tick, 250);
   requestAnimationFrame(autoScroll);
+  initScale();
+}
+
+// Text scale is a property of the room, not the event -- how far away the far end
+// of the table is, how the TV is mounted. Kept per-screen rather than in the shared
+// state so the control laptop never inherits the TV's setting.
+const SCALE_KEY = KEY + '-tvscale';
+
+function initScale() {
+  applyScale(+localStorage.getItem(SCALE_KEY) || 1, false);
+  addEventListener('keydown', e => {
+    const cur = +localStorage.getItem(SCALE_KEY) || 1;
+    if (e.key === '+' || e.key === '=') applyScale(cur + 0.05);
+    else if (e.key === '-' || e.key === '_') applyScale(cur - 0.05);
+    else if (e.key === '0') applyScale(1);
+  });
+}
+
+function applyScale(v, toast = true) {
+  const scale = Math.min(1.8, Math.max(0.6, Math.round(v * 100) / 100));
+  localStorage.setItem(SCALE_KEY, scale);
+  $('#display').style.setProperty('--tv', scale);
+  if (toast) showToast(`Text size ${Math.round(scale * 100)}%`);
+}
+
+let toastTimer = 0;
+function showToast(text) {
+  let el = $('.tv-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'tv-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 1400);
 }
 
 // Creep the standings up and down so a list taller than the TV stays readable

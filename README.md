@@ -97,6 +97,20 @@ The TV standings scroll themselves, slowly, pausing at each end — so a field
 too long to fit on screen still cycles into view without anyone touching the
 laptop. Short lists that already fit stay put.
 
+### Sizing the TV text
+
+Layout is in `vw`/`vh` units, so it renders identically at 1080p and 4K — only
+the physical screen size and how far away people sit actually matter.
+
+Defaults suit a ~46in 1080p set read from about 10–12 feet: team names and point
+totals are comfortable there, and the timer reads from roughly 45 feet.
+
+With the display window focused, **`+`** and **`-`** resize everything except the
+timer, and **`0`** resets. The setting is remembered per screen, so the TV keeps
+its own size and the control laptop is unaffected. Bigger text means fewer teams
+visible at once — about 5 rows at the default, 4 at 125% — but the auto-scroll
+cycles the rest through.
+
 ### Legends and stats
 
 Each player can be given a Legend on the Setup tab. It shows beside their name on

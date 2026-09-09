@@ -34,6 +34,10 @@ body {
 /* ---------------- TV DISPLAY ---------------- */
 
 #display {
+  /* Master text scale for the TV. Adjust live with + / - / 0 on the display
+     window -- room size and mount distance vary too much for one fixed value.
+     Defaults are tuned for a ~46in 1080p set read from roughly 10-12 feet. */
+  --tv: 1;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -64,7 +68,7 @@ body {
 
 #dsp-event {
   margin: 0;
-  font-size: 1.7vw;
+  font-size: calc(1.8vw * var(--tv));
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--gold-hi);
@@ -75,7 +79,7 @@ body {
 
 #dsp-round {
   margin: 0.3vh 0 0;
-  font-size: 1.15vw;
+  font-size: calc(1.3vw * var(--tv));
   color: var(--dim);
   text-transform: uppercase;
   letter-spacing: 0.22em;
@@ -84,6 +88,8 @@ body {
 .dsp-clock { text-align: right; flex: none; }
 
 .timer {
+  /* Deliberately not scaled by --tv: at 13vw it already reads from ~45ft, and
+     growing it would only steal rows from the standings. */
   font-size: 13vw;
   font-weight: 800;
   line-height: 0.95;
@@ -101,7 +107,7 @@ body {
 @keyframes pulse { 50% { opacity: 0.45; } }
 
 .timer-label {
-  font-size: 1vw;
+  font-size: calc(1.1vw * var(--tv));
   margin-top: -0.6vh;
   color: var(--dim);
   text-transform: uppercase;
@@ -128,7 +134,7 @@ body {
 .standings li.top { background: linear-gradient(90deg, #1d2740 0%, rgba(29, 39, 64, 0.4) 100%); }
 
 .st-rank {
-  font-size: 2.6vw;
+  font-size: calc(2.8vw * var(--tv));
   font-weight: 800;
   color: var(--gold);
   text-align: center;
@@ -138,7 +144,7 @@ body {
 .st-team { min-width: 0; }
 
 .st-name {
-  font-size: 2.2vw;
+  font-size: calc(3vw * var(--tv));
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -146,7 +152,7 @@ body {
 }
 
 .st-players {
-  font-size: 1.15vw;
+  font-size: calc(1.6vw * var(--tv));
   color: var(--dim);
   display: flex;
   gap: 1.2vw;
@@ -157,21 +163,21 @@ body {
 .st-players span { display: inline-flex; align-items: center; gap: 0.4vw; }
 
 .legend-chip {
-  width: 0.85vw; height: 0.85vw;
+  width: calc(1.15vw * var(--tv)); height: calc(1.15vw * var(--tv));
   border-radius: 50%;
   flex: none;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
 .st-record {
-  font-size: 1.7vw;
+  font-size: calc(2vw * var(--tv));
   color: var(--dim);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .st-points {
-  font-size: 3vw;
+  font-size: calc(3.4vw * var(--tv));
   font-weight: 800;
   color: var(--gold-hi);
   font-variant-numeric: tabular-nums;
@@ -181,7 +187,7 @@ body {
 }
 
 .st-pts-label {
-  font-size: 0.95vw;
+  font-size: calc(1.05vw * var(--tv));
   font-style: normal;
   font-weight: 600;
   color: var(--dim);
@@ -190,7 +196,29 @@ body {
   margin-left: 0.4vw;
 }
 
-.dsp-empty { color: var(--dim); font-size: 1.6vw; text-align: center; margin-top: 12vh; }
+.dsp-empty { color: var(--dim); font-size: calc(1.8vw * var(--tv)); text-align: center; margin-top: 12vh; }
+
+/* Brief confirmation when the TV text scale is nudged. */
+.tv-toast {
+  position: fixed;
+  bottom: 3vh;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 11, 20, 0.92);
+  border: 1px solid var(--gold);
+  color: var(--gold-hi);
+  font-size: 1.4vw;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 1vh 2vw;
+  border-radius: 0.6vw;
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+}
+
+.tv-toast.show { opacity: 1; }
 
 /* ---------------- CONTROL PANEL ---------------- */
 
