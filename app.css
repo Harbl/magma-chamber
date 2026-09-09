@@ -60,27 +60,31 @@ body {
   background: linear-gradient(90deg, transparent, var(--gold), transparent);
 }
 
+.dsp-title { min-width: 0; }
+
 #dsp-event {
   margin: 0;
-  font-size: 3.4vw;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  font-size: 1.7vw;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   color: var(--gold-hi);
-  text-shadow: 0 0 24px rgba(201, 162, 39, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #dsp-round {
-  margin: 0.2vh 0 0;
-  font-size: 1.5vw;
+  margin: 0.3vh 0 0;
+  font-size: 1.15vw;
   color: var(--dim);
   text-transform: uppercase;
   letter-spacing: 0.22em;
 }
 
-.dsp-clock { text-align: right; }
+.dsp-clock { text-align: right; flex: none; }
 
 .timer {
-  font-size: 9vw;
+  font-size: 13vw;
   font-weight: 800;
   line-height: 0.95;
   font-variant-numeric: tabular-nums;
@@ -97,13 +101,15 @@ body {
 @keyframes pulse { 50% { opacity: 0.45; } }
 
 .timer-label {
-  font-size: 1.15vw;
+  font-size: 1vw;
+  margin-top: -0.6vh;
   color: var(--dim);
   text-transform: uppercase;
   letter-spacing: 0.3em;
 }
 
-.dsp-body { flex: 1; padding: 1.6vh 3vw 3vh; overflow: hidden; }
+/* overflow hidden, not auto: the list is scrolled by script so no bar shows on the TV. */
+.dsp-body { flex: 1; min-height: 0; padding: 1.6vh 3vw 3vh; overflow: hidden; }
 
 .standings { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.9vh; }
 
@@ -295,28 +301,72 @@ button.sm { padding: 5px 10px; font-size: 13px; }
 .pair-card { display: block; }
 .pair-teams { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
 .pair-vs { color: var(--gold); font-weight: 700; font-size: 13px; }
-.pair-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
-
-.score {
-  margin: 0;
-  font-size: 12px;
-  color: var(--dim);
-  max-width: 190px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.team-pick {
+  flex: 1;
+  min-width: 140px;
+  background: var(--bg-2);
+  color: var(--ink);
+  border: 2px solid var(--line);
+  font-weight: 700;
+  text-align: center;
+  padding: 12px 14px;
+  white-space: normal;
 }
 
+.team-pick:hover { border-color: var(--gold); filter: none; }
+
+.team-pick.won {
+  background: rgba(74, 168, 99, 0.18);
+  border-color: #4aa863;
+  color: #8ce0a4;
+}
+
+.team-pick.lost {
+  background: rgba(214, 58, 52, 0.15);
+  border-color: #d63a34;
+  color: #ff9d95;
+}
+
+.team-pick.drew, .draw-pick.drew {
+  background: rgba(201, 162, 39, 0.18);
+  border-color: var(--gold);
+  color: var(--gold-hi);
+}
+
+.draw-pick, .clear-pick {
+  background: var(--panel);
+  color: var(--dim);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
+.pair-hint { margin: 4px 0 0; font-size: 13px; color: var(--dim); }
+
+.pair-scores {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* Label text sits on its own line so a long team name can never clip the input. */
+.score { margin: 0; font-size: 12px; color: var(--dim); }
+.score span { display: block; margin-bottom: 4px; }
+
 .score input {
-  width: 90px;
-  margin-top: 3px;
-  font-size: 18px;
+  width: 110px;
+  margin-top: 0;
+  font-size: 20px;
   font-weight: 700;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
-.result-note { font-size: 13px; color: var(--dim); padding-bottom: 10px; }
-.result-note.done { color: var(--gold); font-weight: 600; }
+.result-note { font-size: 13px; color: var(--dim); padding-bottom: 12px; }
+.result-note.done { color: #8ce0a4; font-weight: 600; }
 
 .bye { color: var(--gold); font-weight: 600; }

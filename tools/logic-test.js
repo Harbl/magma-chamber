@@ -84,7 +84,7 @@ seed(7);
 run(`
   for (let r = 0; r < 3; r++) {
     const ps = makePairings();
-    ps.forEach(p => { if (p.b !== null) { p.pa = 10; p.pb = 5; } });
+    ps.forEach(p => { if (p.b !== null) { p.winner = 'a'; p.pa = 10; p.pb = 5; } });
     state.rounds.push({n:r+1, pairings:ps, endsAt:0, pausedMs:0, running:false});
   }`);
 const byes = run(`state.rounds.flatMap(r=>r.pairings.filter(p=>p.b===null).map(p=>p.a))`);
@@ -97,7 +97,7 @@ seed(8);
 run(`
   for (let r = 0; r < 3; r++) {
     const ps = makePairings();
-    ps.forEach(p => { if (p.b !== null) { p.pa = 10; p.pb = 5; } });
+    ps.forEach(p => { if (p.b !== null) { p.winner = 'a'; p.pa = 10; p.pb = 5; } });
     state.rounds.push({n:r+1, pairings:ps, endsAt:0, pausedMs:0, running:false});
   }`);
 const seenPairs = run(`state.rounds.flatMap(r=>r.pairings.filter(p=>p.b!==null).map(p=>[p.a,p.b].sort().join('|')))`);
@@ -105,26 +105,32 @@ check('12 matches played', seenPairs.length === 12);
 check('no repeated matchup', new Set(seenPairs).size === seenPairs.length);
 
 // --- 5. scoring maths ------------------------------------------------------
-console.log('\nscoring (winner derived from game points):');
+console.log('\nscoring (winner picked explicitly, scores entered after):');
 seed(4);
 run(`state.rounds.push({n:1, pairings:[
-  {a:'t1', b:'t2', pa:11, pb:8},
-  {a:'t3', b:'t4', pa:9,  pb:9}], endsAt:0, pausedMs:0, running:false})`);
-check('higher score wins: 3 match pts, 1-0', run(`records()['t1'].pts`) === 3 && run(`records()['t1'].w`) === 1);
-check('lower score loses: 0 match pts, 0-1', run(`records()['t2'].pts`) === 0 && run(`records()['t2'].l`) === 1);
-check('equal scores = draw, 1 match pt each', run(`records()['t3'].pts`) === 1 && run(`records()['t4'].pts`) === 1);
+  {a:'t1', b:'t2', winner:'a',    pa:11, pb:8},
+  {a:'t3', b:'t4', winner:'draw', pa:9,  pb:9}], endsAt:0, pausedMs:0, running:false})`);
+check('win = 3 match pts, 1-0', run(`records()['t1'].pts`) === 3 && run(`records()['t1'].w`) === 1);
+check('loss = 0 match pts, 0-1', run(`records()['t2'].pts`) === 0 && run(`records()['t2'].l`) === 1);
+check('draw = 1 match pt each', run(`records()['t3'].pts`) === 1 && run(`records()['t4'].pts`) === 1);
 check('game points accumulate per team', run(`records()['t1'].gp`) === 11 && run(`records()['t2'].gp`) === 8);
-check('half-entered match is not scored', run(`
-  (() => { state.rounds[0].pairings.push({a:'t1',b:'t3',pa:5,pb:null});
+check('winner picked but scores blank is not counted', run(`
+  (() => { state.rounds[0].pairings.push({a:'t1',b:'t3',winner:'a',pa:null,pb:null});
            const g = records()['t1'].gp; state.rounds[0].pairings.pop(); return g; })()`) === 11);
+check('scores entered but no winner picked is not counted', run(`
+  (() => { state.rounds[0].pairings.push({a:'t1',b:'t3',winner:null,pa:7,pb:3});
+           const g = records()['t1'].gp; state.rounds[0].pairings.pop(); return g; })()`) === 11);
+check('a team can win on fewer points than it conceded', run(`
+  (() => { const p = {a:'t1',b:'t2',winner:'a',pa:8,pb:11};
+           return outcome(p) === 'a' && reported(p); })()`) === true);
 check('leader is the top scorer', run(`standings()[0].id`) === 't1');
 
 // --- 5b. ranking follows points, not match wins ---------------------------
 console.log('\nranking key:');
 seed(4);
 run(`state.rounds.push({n:1, pairings:[
-  {a:'t1', b:'t2', pa:6,  pb:5},
-  {a:'t3', b:'t4', pa:20, pb:25}], endsAt:0, pausedMs:0, running:false})`);
+  {a:'t1', b:'t2', winner:'a', pa:6,  pb:5},
+  {a:'t3', b:'t4', winner:'b', pa:20, pb:25}], endsAt:0, pausedMs:0, running:false})`);
 check('t3 lost but outscored t1, so ranks higher',
   run(`standings().findIndex(s=>s.id==='t3') < standings().findIndex(s=>s.id==='t1')`),
   `t3 gp=${run(`records()['t3'].gp`)} (0 wins) vs t1 gp=${run(`records()['t1'].gp`)} (1 win)`);
@@ -142,8 +148,8 @@ console.log('\ntiebreakers:');
 seed(4);
 // t1 and t3 both win 10-5, so they tie on game points and match points.
 // t1 beat t2 (who then won), t3 beat t4 (who then lost) -- so t1 has stronger opposition.
-run(`state.rounds.push({n:1, pairings:[{a:'t1',b:'t2',pa:10,pb:5},{a:'t3',b:'t4',pa:10,pb:5}], endsAt:0, pausedMs:0, running:false});
-     state.rounds.push({n:2, pairings:[{a:'t2',b:'t4',pa:10,pb:5}], endsAt:0, pausedMs:0, running:false});`);
+run(`state.rounds.push({n:1, pairings:[{a:'t1',b:'t2',winner:'a',pa:10,pb:5},{a:'t3',b:'t4',winner:'a',pa:10,pb:5}], endsAt:0, pausedMs:0, running:false});
+     state.rounds.push({n:2, pairings:[{a:'t2',b:'t4',winner:'a',pa:10,pb:5}], endsAt:0, pausedMs:0, running:false});`);
 check('t1 and t3 tied on game points', run(`records()['t1'].gp`) === run(`records()['t3'].gp`));
 check('t1 and t3 tied on match points', run(`records()['t1'].pts`) === run(`records()['t3'].pts`));
 check('t1 ahead on stronger opponent', run(`records()['t1'].omw > records()['t3'].omw`),

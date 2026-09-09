@@ -43,20 +43,18 @@ function blank() {
     name: '', minutes: 50, byePoints: 8,
     players: [],            // {id, name, legend}
     teams: [],              // {id, name, players:[id,id], custom:bool}
-    rounds: [],             // {n, pairings:[{a, b|null, pa, pb, result}], endsAt, pausedMs, running}
+    rounds: [],             // {n, pairings:[{a, b|null, winner, pa, pb}], endsAt, pausedMs, running}
     order: null,            // manual team-id order for the TV, or null
     archive: [],
   };
 }
 
-// A match is reported once both teams have a game score. The winner is whoever
-// scored more; equal scores are a draw.
-const reported = p => p.b === null ? p.pa != null : (p.pa != null && p.pb != null);
-const outcome = p => {
-  if (!reported(p)) return null;
-  if (p.b === null) return 'a';
-  return p.pa > p.pb ? 'a' : p.pb > p.pa ? 'b' : 'draw';
-};
+// The winner is picked explicitly by tapping a team name, then both scores are
+// entered for the leaderboard. A match counts once both steps are done.
+const outcome = p => p.b === null ? 'a' : (p.winner || null);
+const reported = p => p.b === null
+  ? p.pa != null
+  : (!!p.winner && p.pa != null && p.pb != null);
 
 function load() {
   try {
@@ -172,13 +170,13 @@ function makePairings() {
     for (const b of others) {
       if (alreadyPlayed(a, b)) continue;
       const tail = walk(others.filter(x => x !== b));
-      if (tail) return [{ a, b, pa: null, pb: null }, ...tail];
+      if (tail) return [{ a, b, winner: null, pa: null, pb: null }, ...tail];
     }
     // Everyone left is a rematch; allow it rather than failing to pair.
     if (others.length) {
       const b = others[0];
       const tail = walk(others.slice(1));
-      if (tail) return [{ a, b, pa: null, pb: null }, ...tail];
+      if (tail) return [{ a, b, winner: null, pa: null, pb: null }, ...tail];
     }
     return null;
   }
@@ -289,21 +287,24 @@ function renderControl() {
   $('#pairing-list').innerHTML = !r ? '<li class="sub">No pairings yet.</li>' : r.pairings.map((p, i) => {
     if (p.b === null) return `<li><span class="grow">${esc(teamName(p.a))}</span>
       <span class="bye">BYE &middot; ${p.pa} pts</span></li>`;
-    const res = outcome(p);
-    const note = res === 'draw' ? 'Draw'
-      : res ? `${esc(teamName(res === 'a' ? p.a : p.b))} wins`
-      : 'Awaiting scores';
+    const w = p.winner;
+    const cls = side => w ? (w === 'draw' ? 'drew' : (w === side ? 'won' : 'lost')) : '';
     return `<li class="pair-card">
       <div class="pair-teams">
-        <b>${esc(teamName(p.a))}</b> <span class="pair-vs">vs</span> <b>${esc(teamName(p.b))}</b>
+        <button class="team-pick ${cls('a')}" data-pick="${i}:a">${esc(teamName(p.a))}</button>
+        <span class="pair-vs">vs</span>
+        <button class="team-pick ${cls('b')}" data-pick="${i}:b">${esc(teamName(p.b))}</button>
+        <button class="draw-pick ${w === 'draw' ? 'drew' : ''}" data-pick="${i}:draw">Draw</button>
+        ${w ? `<button class="clear-pick" data-pick="${i}:">Clear</button>` : ''}
       </div>
-      <div class="pair-actions">
-        <label class="score">${esc(teamName(p.a))}
+      ${w ? `<div class="pair-scores">
+        <label class="score"><span>${esc(teamName(p.a))} points</span>
           <input type="number" min="0" data-pts="${i}:a" value="${p.pa ?? ''}"></label>
-        <label class="score">${esc(teamName(p.b))}
+        <label class="score"><span>${esc(teamName(p.b))} points</span>
           <input type="number" min="0" data-pts="${i}:b" value="${p.pb ?? ''}"></label>
-        <span class="result-note ${res ? 'done' : ''}">${note}</span>
-      </div>
+        ${reported(p) ? '<span class="result-note done">Recorded</span>'
+                      : '<span class="result-note">Enter both scores</span>'}
+      </div>` : '<p class="pair-hint">Tap the winning team.</p>'}
     </li>`;
   }).join('');
 
@@ -474,9 +475,11 @@ if (!isDisplay) {
   $('#btn-make-team').onclick = () => {
     const a = $('#pick-a').value, b = $('#pick-b').value;
     if (!a || !b || a === b) return msg('#team-msg', 'Pick two different players.', 'err');
-    addTeam(a, b);
+    addTeam(a, b, $('#new-team-name').value);
+    $('#new-team-name').value = '';
     save();
   };
+  $('#new-team-name').onkeydown = e => { if (e.key === 'Enter') $('#btn-make-team').click(); };
 
   $('#btn-auto-team').onclick = () => {
     const free = [...unassigned()];
@@ -534,6 +537,16 @@ if (!isDisplay) {
     r.running = false;
     save();
     $('#btn-pair').click();
+  };
+
+  $('#pairing-list').onclick = e => {
+    const val = e.target.dataset.pick;
+    if (val === undefined) return;
+    const [i, side] = val.split(':');
+    const r = currentRound();
+    if (!r) return;
+    r.pairings[+i].winner = side || null;
+    save();
   };
 
   // 'change' rather than 'input': re-rendering on every keystroke would steal focus.
@@ -600,9 +613,10 @@ if (!isDisplay) {
   };
 }
 
-function addTeam(a, b) {
+function addTeam(a, b, name = '') {
   const na = player(a)?.name ?? '?', nb = player(b)?.name ?? '?';
-  state.teams.push({ id: uid(), name: `${na} & ${nb}`, players: [a, b], custom: false });
+  const custom = !!name.trim();
+  state.teams.push({ id: uid(), name: custom ? name.trim() : `${na} & ${nb}`, players: [a, b], custom });
 }
 
 // ---------------------------------------------------------------- boot
@@ -610,6 +624,29 @@ function addTeam(a, b) {
 if (isDisplay) {
   $('#display').hidden = false;
   setInterval(tick, 250);
+  requestAnimationFrame(autoScroll);
+}
+
+// Creep the standings up and down so a list taller than the TV stays readable
+// without anyone touching the laptop. Pauses at each end before turning around.
+const SCROLL_PX_PER_SEC = 18, SCROLL_HOLD_MS = 4000;
+let scrollAt = 0, scrollDir = 1, holdUntil = 0, lastFrame = 0;
+
+function autoScroll(ts) {
+  requestAnimationFrame(autoScroll);
+  const box = $('.dsp-body');
+  if (!box) return;
+  const dt = lastFrame ? (ts - lastFrame) / 1000 : 0;
+  lastFrame = ts;
+
+  const max = box.scrollHeight - box.clientHeight;
+  if (max <= 1) { scrollAt = 0; scrollDir = 1; box.scrollTop = 0; return; }
+  if (ts < holdUntil) return;
+
+  scrollAt += scrollDir * SCROLL_PX_PER_SEC * dt;
+  if (scrollAt >= max) { scrollAt = max; scrollDir = -1; holdUntil = ts + SCROLL_HOLD_MS; }
+  else if (scrollAt <= 0) { scrollAt = 0; scrollDir = 1; holdUntil = ts + SCROLL_HOLD_MS; }
+  box.scrollTop = scrollAt;
 }
 
 fetch('data/legends.json')

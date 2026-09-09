@@ -79,18 +79,23 @@ with no browser chrome. No Terminal, ever.
 1. Open the app from the Dock.
 2. **Setup** — type the event name. Paste the event ID from the locator URL
    (`…/events/`**`254672`**) and press *Import signups*.
-3. **Teams** — pair players up, or press *Auto-pair remaining players*.
-   *Rename* gives a team a custom name.
+3. **Teams** — pick two players, optionally type a team name, and *Create team*.
+   Leaving the name blank falls back to "Player A & Player B". *Auto-pair
+   remaining players* does the rest in one press, and *Rename* fixes any of them.
 4. Press **Open TV Display** and drag that window to the TV, then fullscreen it.
 5. **Round** — *Generate pairings*, then *Start timer*. As each match finishes,
-   type both teams' game scores into the two boxes. The higher score wins, equal
-   scores are a draw, and the TV updates itself.
+   tap the winning team's name — it turns green, the loser turns red, and the
+   score boxes appear. Enter both teams' game points to record the match.
 6. *Finish round & continue* pairs the next round.
 7. At the end of the night, **Setup → Finish & archive event**. That saves the
    results and downloads a backup file automatically.
 
 The control window and the TV window stay in sync. Either can be refreshed
 mid-event without losing anything.
+
+The TV standings scroll themselves, slowly, pausing at each end — so a field
+too long to fit on screen still cycles into view without anyone touching the
+laptop. Short lists that already fit stay put.
 
 ### Legends and stats
 
