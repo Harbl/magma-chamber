@@ -34,8 +34,9 @@ window across.
 
 ## Setting up the shop MacBook
 
-> Handing this to the shop staff? Give them **[MAC-SETUP.md](MAC-SETUP.md)**
-> instead — same steps, written for someone who has never used a terminal.
+> Handing this to the shop staff? Point them at the **public repo's README**,
+> which covers Mac and Windows for someone who has never used a terminal.
+> `MAC-SETUP.md` here is the Mac-only original it grew out of.
 
 Copy this folder to the Mac and double-click **`Magma Chamber (macOS).command`**.
 It starts a local server and opens the app. Keep the Terminal window open; closing
@@ -197,8 +198,13 @@ to the local Swiss engine.
 `main` tracks `private/main`, so a bare `git push` updates the private repo.
 The public repo is fed from a local `public` branch that sits one commit ahead of
 `main`. That commit swaps in the plain-English README and drops the technical
-files: `MAC-SETUP.md` (it becomes the README there), `worker/`,
-`tools/logic-test.js` and `tools/fetch-legends.js`.
+files: `MAC-SETUP.md`, `worker/`, `tools/logic-test.js` and
+`tools/fetch-legends.js`.
+
+**The public README only exists on the `public` branch** — it started as
+`MAC-SETUP.md` but has since diverged, covering Windows setup and Carde.io as
+well. Edit it there and `commit --amend` onto the strip-down commit; there is no
+copy on `main` to keep in sync.
 
 To publish new work to the public repo:
 
