@@ -676,14 +676,7 @@ function addTeam(a, b, name = '') {
   state.teams.push({ id: uid(), name: custom ? name.trim() : `${na} & ${nb}`, players: [a, b], custom });
 }
 
-// ---------------------------------------------------------------- boot
-
-if (isDisplay) {
-  $('#display').hidden = false;
-  setInterval(tick, 250);
-  requestAnimationFrame(autoScroll);
-  initScale();
-}
+// ---------------------------------------------------------------- display chrome
 
 // Text scale is a property of the room, not the event -- how far away the far end
 // of the table is, how the TV is mounted. Kept per-screen rather than in the shared
@@ -767,6 +760,19 @@ function displayMode() {
   const total = (state.minutes || 50) * 60000;
   const left = r.running ? Math.max(0, r.endsAt - Date.now()) : (r.pausedMs ?? total);
   return (total - left) < mins * 60000 ? 'pairings' : 'standings';
+}
+
+// ---------------------------------------------------------------- boot
+//
+// Must stay at the very bottom. initScale() and autoScroll() read module-level
+// const/let declared above them, and calling either before those lines evaluate
+// throws a temporal-dead-zone ReferenceError that aborts the rest of this file.
+
+if (isDisplay) {
+  $('#display').hidden = false;
+  initScale();
+  setInterval(tick, 250);
+  requestAnimationFrame(autoScroll);
 }
 
 fetch('data/legends.json')

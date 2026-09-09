@@ -20,22 +20,52 @@ const el = new Proxy(function () {}, {
   apply: () => el,
 });
 
-const store = {};
-const ctx = {
-  console,
-  localStorage: { getItem: k => store[k] ?? null, setItem: (k, v) => (store[k] = v) },
-  BroadcastChannel: class { postMessage() {} set onmessage(_) {} },
-  document: { querySelector: () => el, querySelectorAll: () => [], createElement: () => el },
-  location: { search: '' },
-  navigator: {},
-  fetch: () => Promise.reject(new Error('offline')),
-  setInterval: () => 0,
-  setTimeout: () => 0,
-  URL, Blob: class {}, URLSearchParams,
-};
-ctx.window = ctx;
-vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8'), ctx);
+const SRC = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+
+// A node that actually remembers what was written to it, so the display path can
+// be inspected. One instance per selector, reused across lookups.
+function makeNode() {
+  return {
+    innerHTML: '', textContent: '', hidden: false, value: '', className: '',
+    dataset: {}, files: [],
+    style: { setProperty() {} },
+    classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+    addEventListener() {}, insertBefore() {}, appendChild() {}, click() {},
+    closest() { return this; }, querySelector() { return this; }, querySelectorAll: () => [],
+    getBoundingClientRect: () => ({ top: 0, height: 10 }),
+    scrollTop: 0, scrollHeight: 100, clientHeight: 100,
+  };
+}
+
+function makeCtx(search = '') {
+  const store = {}, nodes = {};
+  const node = sel => (nodes[sel] ||= makeNode());
+  const ctx = {
+    console,
+    localStorage: {
+      getItem: k => store[k] ?? null,
+      setItem: (k, v) => (store[k] = String(v)),
+    },
+    BroadcastChannel: class { postMessage() {} set onmessage(_) {} },
+    document: {
+      querySelector: node, querySelectorAll: () => [], createElement: () => makeNode(),
+      body: makeNode(),
+    },
+    location: { search, hostname: 'localhost' },
+    navigator: {},
+    fetch: () => Promise.reject(new Error('offline')),
+    setInterval: () => 0, setTimeout: () => 0, clearTimeout: () => {},
+    requestAnimationFrame: () => 0,
+    addEventListener() {},
+    URL, Blob: class {}, URLSearchParams,
+  };
+  ctx.window = ctx;
+  vm.createContext(ctx);
+  return { ctx, nodes };
+}
+
+const { ctx } = makeCtx('');
+vm.runInContext(SRC, ctx);
 
 // --- helpers ---------------------------------------------------------------
 let failures = 0;
@@ -187,6 +217,48 @@ check('t1 ahead on stronger opponent', run(`records()['t1'].omw > records()['t3'
   `t1 omw=${run(`records()['t1'].omw`).toFixed(3)} t3 omw=${run(`records()['t3'].omw`).toFixed(3)}`);
 check('standings put t1 above t3',
   run(`standings().findIndex(s=>s.id==='t1') < standings().findIndex(s=>s.id==='t3')`));
+
+// --- 7b. the display window actually boots --------------------------------
+// The control path can't catch this: a TDZ error in the isDisplay boot block
+// aborts the rest of app.js, leaving the TV frozen on its initial HTML.
+console.log('\ndisplay window boot:');
+let dctx, dnodes, bootErr = null;
+try {
+  ({ ctx: dctx, nodes: dnodes } = makeCtx('?display=1'));
+  vm.runInContext(SRC, dctx);
+} catch (e) { bootErr = e; }
+check('app.js evaluates with ?display=1', bootErr === null, bootErr && bootErr.message);
+
+if (!bootErr) {
+  check('display element is unhidden', dnodes['#display'].hidden === false);
+
+  // Build a live event in the display context and make sure it renders.
+  const drun = expr => vm.runInContext(expr, dctx);
+  drun(`state = blank();
+    for (let i = 1; i <= 3; i++) {
+      const a = {id:'p'+i+'a',name:'Ann'+i,legend:''}, b = {id:'p'+i+'b',name:'Bob'+i,legend:''};
+      state.players.push(a,b);
+      state.teams.push({id:'t'+i,name:'Team '+i,players:[a.id,b.id],custom:false});
+    }
+    state.rounds.push({n:1, pairings: makePairings(), endsAt:0, pausedMs: state.minutes*60000, running:false});`);
+
+  let renderErr = null;
+  try { drun('renderDisplay()'); } catch (e) { renderErr = e; }
+  check('renderDisplay() runs clean', renderErr === null, renderErr && renderErr.message);
+
+  check('pairings view is populated', /Table/.test(dnodes['#dsp-pairings'].innerHTML),
+    JSON.stringify(dnodes['#dsp-pairings'].innerHTML.slice(0, 60)));
+  check('"add teams" prompt is hidden once teams exist', dnodes['#dsp-empty'].hidden === true);
+
+  // Past the pairings window it must swap to standings.
+  drun(`state.pairingMinutes = 0; renderDisplay()`);
+  check('standings view is populated', /Team 1/.test(dnodes['#dsp-standings'].innerHTML),
+    JSON.stringify(dnodes['#dsp-standings'].innerHTML.slice(0, 60)));
+
+  let scrollErr = null;
+  try { drun('autoScroll(1000)'); } catch (e) { scrollErr = e; }
+  check('autoScroll() runs clean', scrollErr === null, scrollErr && scrollErr.message);
+}
 
 // --- 8. the [hidden] override is still in place ---------------------------
 // #display is display:flex and the standings/pairings lists are display:grid.
