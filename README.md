@@ -34,6 +34,9 @@ window across.
 
 ## Setting up the shop MacBook
 
+> Handing this to the shop staff? Give them **[MAC-SETUP.md](MAC-SETUP.md)**
+> instead — same steps, written for someone who has never used a terminal.
+
 Copy this folder to the Mac and double-click **`Magma Chamber (macOS).command`**.
 It starts a local server and opens the app. Keep the Terminal window open; closing
 it stops the app.
