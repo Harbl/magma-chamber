@@ -86,14 +86,29 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   white-space: nowrap;
 }
 
-/* The collab "x" -- thin, muted, and sized well below the two names it joins. */
+/* The collab "x", flanked by rules that fade out toward the edges. */
 .collab-x {
-  font-size: calc(1.1vw * var(--tv));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9vw;
+  margin: 0.7vh 0;
+  font-size: calc(1.9vw * var(--tv));
   line-height: 1;
-  color: var(--gold);
-  opacity: 0.75;
-  margin: 0.5vh 0;
+  color: var(--gold-hi);
+  text-shadow: 0 0 1.4vw rgba(240, 207, 106, 0.55);
 }
+
+.collab-x::before,
+.collab-x::after {
+  content: "";
+  height: 2px;
+  flex: 1;
+  min-width: 2vw;
+  background: linear-gradient(90deg, transparent, var(--gold) 85%);
+}
+
+.collab-x::after { background: linear-gradient(90deg, var(--gold) 15%, transparent); }
 
 .dsp-app {
   margin: 0;
