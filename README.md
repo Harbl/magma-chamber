@@ -173,6 +173,20 @@ double loss. Reported pairings are marked, and the list refreshes after each pus
 Pair the round **in Carde.io first** — reporting needs Carde's own pairing IDs,
 which only exist once Carde has paired.
 
+### Carde.io takes over pairing
+
+Once a token is connected **and** a round has been loaded, Carde.io owns the
+event. *Generate pairings* and *Finish round & continue* are disabled on the
+Round tab and an explanation replaces them, because two sets of pairings would
+mean results getting reported against the wrong matches.
+
+The handlers refuse as well, not just the buttons — a disabled button is not the
+only way to reach them.
+
+The timer, teams and stats keep working, and the TV falls back to showing
+Carde.io's pairings and table numbers. Disconnecting hands pairing straight back
+to the local Swiss engine.
+
 ## The two repositories
 
 | | branch | contains |

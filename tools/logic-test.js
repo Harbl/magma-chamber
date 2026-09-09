@@ -46,6 +46,7 @@ function makeCtx(search = '') {
     localStorage: {
       getItem: k => store[k] ?? null,
       setItem: (k, v) => (store[k] = String(v)),
+      removeItem: k => { delete store[k]; },
     },
     BroadcastChannel: class { postMessage() {} set onmessage(_) {} },
     document: {
@@ -336,6 +337,50 @@ console.log('\nCarde.io client:');
       .then(() => 'no error thrown', e => e.message)
       .then(m => check('401 explains that the token expired', /expired/i.test(m), m))
   );
+}
+
+// --- 7e. Carde.io takes over pairing --------------------------------------
+console.log('\nCarde.io lockout:');
+{
+  const { ctx: lctx, nodes: lnodes } = makeCtx('');
+  lctx.fetch = () => Promise.resolve({
+    ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ data: [] })),
+  });
+  vm.runInContext(SRC, lctx);
+  const lrun = e => vm.runInContext(e, lctx);
+
+  check('local pairing allowed while disconnected', lrun('cardeActive()') === false);
+
+  // A token alone is not enough -- a round has to be loaded from Carde.
+  lrun(`Carde.connect('tok')`);
+  check('connected but no round yet still allows local pairing', lrun('cardeActive()') === false);
+
+  lrun(`Carde.setContext({roundId:'r-1'})`);
+  check('loading a Carde round takes over', lrun('cardeActive()') === true);
+
+  lrun('renderControl()');
+  check('Generate pairings is disabled', lnodes['#btn-pair'].disabled === true);
+  check('Finish round is disabled', lnodes['#btn-next-round'].disabled === true);
+  check('explanation is shown', lnodes['#carde-lock'].hidden === false);
+
+  // Guard the handler too: a disabled button is not the only way in.
+  lrun(`state = blank();
+    for (let i=1;i<=4;i++){ const a={id:'x'+i,name:'A'+i,legend:''},b={id:'y'+i,name:'B'+i,legend:''};
+      state.players.push(a,b); state.teams.push({id:'t'+i,name:'T'+i,players:[a.id,b.id],custom:false}); }
+    $('#btn-pair').onclick();`);
+  check('handler refuses to pair under Carde', lrun('state.rounds.length') === 0);
+
+  // The TV falls back to Carde's rows when there is no local round.
+  lrun(`state.cardePairings = [{table:3, names:['Ann','Bob'], reported:false}];
+        state.cardeRoundLabel = 'Round 2';`);
+  check('TV shows pairings from Carde', lrun('displayMode()') === 'pairings');
+  check('TV rows come from Carde', lrun(`JSON.stringify(displayPairings())`) ===
+    JSON.stringify([{ table: 3, names: ['Ann', 'Bob'], bye: false }]));
+
+  lrun(`Carde.disconnect(); state.cardePairings = null;`);
+  check('disconnecting hands pairing back', lrun('cardeActive()') === false);
+  lrun('renderControl()');
+  check('Generate pairings re-enabled', lnodes['#btn-pair'].disabled === false);
 }
 
 // --- 8. the [hidden] override is still in place ---------------------------

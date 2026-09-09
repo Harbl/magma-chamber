@@ -45,6 +45,8 @@ function blank() {
     teams: [],              // {id, name, players:[id,id], custom:bool}
     rounds: [],             // {n, pairings:[{a, b|null, winner, pa, pb}], endsAt, pausedMs, running}
     order: null,            // manual team-id order for the TV, or null
+    cardePairings: null,    // trimmed copy of Carde.io's pairings, for the TV
+    cardeRoundLabel: '',
     archive: [],
   };
 }
@@ -72,6 +74,10 @@ function save(broadcast = true) {
 chan.onmessage = e => { state = e.data; render(); };
 
 // ---------------------------------------------------------------- lookups
+
+// Carde.io is in charge once it is connected and a round has been loaded from it.
+const cardeActive = () =>
+  typeof Carde !== 'undefined' && Carde.isConnected() && !!Carde.context().roundId;
 
 const team = id => state.teams.find(t => t.id === id);
 const player = id => state.players.find(p => p.id === id);
@@ -230,26 +236,26 @@ function renderDisplay() {
   const mode = displayMode();
   if (mode !== lastMode) { scrollAt = 0; atBottom = false; holdUntil = 0; }
   lastMode = mode;
-  $('#dsp-round').textContent = !r ? 'Waiting to start'
-    : mode === 'pairings' ? `Round ${r.n} — Pairings` : `Round ${r.n} — Standings`;
+  const roundName = r ? `Round ${r.n}` : (state.cardeRoundLabel || '');
+  $('#dsp-round').textContent = !roundName ? 'Waiting to start'
+    : `${roundName} — ${mode === 'pairings' ? 'Pairings' : 'Standings'}`;
 
   $('#dsp-pairings').hidden = mode !== 'pairings';
   $('#dsp-standings').hidden = mode === 'pairings';
 
   if (mode === 'pairings') {
     $('#dsp-empty').hidden = true;
-    $('#dsp-pairings').innerHTML = r.pairings.map(p => p.b === null
+    $('#dsp-pairings').innerHTML = displayPairings().map(p => p.bye
       ? `<li class="pr-row pr-bye">
            <div class="pr-table">—</div>
-           <div class="pr-teams"><span class="pr-team">${esc(teamName(p.a))}</span></div>
+           <div class="pr-teams"><span class="pr-team">${esc(p.names[0])}</span></div>
            <div class="pr-bye-tag">BYE</div>
          </li>`
       : `<li class="pr-row">
            <div class="pr-table"><i>Table</i>${p.table ?? '—'}</div>
            <div class="pr-teams">
-             <span class="pr-team">${esc(teamName(p.a))}</span>
-             <span class="pr-vs">vs</span>
-             <span class="pr-team">${esc(teamName(p.b))}</span>
+             ${p.names.map(n => `<span class="pr-team">${esc(n)}</span>`)
+                      .join('<span class="pr-vs">vs</span>')}
            </div>
          </li>`).join('');
     tick();
@@ -332,6 +338,12 @@ function renderControl() {
   // round
   const r = currentRound();
   $('#round-num').textContent = r ? r.n : '—';
+
+  // Once Carde.io owns the pairings, local pairing has to be off or the two
+  // disagree and results get reported against the wrong matches.
+  const locked = cardeActive();
+  $('#carde-lock').hidden = !locked;
+  ['#btn-pair', '#btn-next-round'].forEach(sel => { $(sel).disabled = locked; });
   $('#pairing-list').innerHTML = !r ? '<li class="sub">No pairings yet.</li>' : r.pairings.map((p, i) => {
     if (p.b === null) return `<li><span class="grow">${esc(teamName(p.a))}</span>
       <span class="bye">BYE &middot; ${p.pa} pts</span></li>`;
@@ -580,6 +592,7 @@ if (!isDisplay) {
   };
 
   $('#btn-pair').onclick = () => {
+    if (cardeActive()) return msg('#round-msg', 'Carde.io is running this event — pair the round there.', 'err');
     if (state.teams.length < 2) return msg('#round-msg', 'Need at least two teams.', 'err');
     const r = currentRound();
     if (r && r.pairings.some(p => !reported(p))) return msg('#round-msg', 'Enter both scores for every match first.', 'err');
@@ -616,6 +629,7 @@ if (!isDisplay) {
     save();
   };
   $('#btn-next-round').onclick = () => {
+    if (cardeActive()) return msg('#round-msg', 'Carde.io is running this event — advance the round there.', 'err');
     const r = currentRound();
     if (!r) return msg('#round-msg', 'No round in progress.', 'err');
     if (r.pairings.some(p => !reported(p))) return msg('#round-msg', 'Enter both scores for every match first.', 'err');
@@ -697,6 +711,10 @@ if (!isDisplay) {
     Carde.disconnect();
     ['#carde-store', '#carde-game', '#carde-event', '#carde-round'].forEach(s => ($(s).innerHTML = ''));
     $('#carde-pairing-list').innerHTML = '';
+    // Hand control back to local pairing, and clear Carde's rows off the TV.
+    state.cardePairings = null;
+    state.cardeRoundLabel = '';
+    save();
     cardeStatus();
   };
 
@@ -752,6 +770,19 @@ if (!isDisplay) {
 
   function renderCardePairings(pairings) {
     window.__cardePairings = pairings;
+
+    // Mirror a trimmed copy into shared state so the TV window can show them.
+    state.cardePairings = pairings.map(p => {
+      const seats = seatsOf(p);
+      return {
+        table: p.tableNumber ?? p.table ?? null,
+        names: seats.map(s => s.name),
+        reported: !!p.result,
+      };
+    });
+    state.cardeRoundLabel = $('#carde-round').selectedOptions[0]?.textContent || '';
+    save();
+
     $('#carde-count').textContent = pairings.length ? `(${pairings.length})` : '';
     $('#carde-pairing-list').innerHTML = pairings.map((p, i) => {
       const seats = seatsOf(p);
@@ -910,9 +941,21 @@ function autoScroll(ts) {
 
 // The TV leads with pairings so players can find their table, then falls back to
 // the leaderboard for the rest of the round.
+// Rows for the TV pairings view: local pairings normally, Carde.io's when it is
+// the one running the event.
+function displayPairings() {
+  const r = currentRound();
+  if (r && r.pairings.length) return r.pairings.map(p => ({
+    table: p.table,
+    names: p.b === null ? [teamName(p.a)] : [teamName(p.a), teamName(p.b)],
+    bye: p.b === null,
+  }));
+  return (state.cardePairings || []).map(p => ({ table: p.table, names: p.names, bye: false }));
+}
+
 function displayMode() {
   const r = currentRound();
-  if (!r || !r.pairings.length) return 'standings';
+  if (!r || !r.pairings.length) return (state.cardePairings || []).length ? 'pairings' : 'standings';
   const mins = state.pairingMinutes ?? 8;
   if (mins <= 0) return 'standings';
   if (r.pairings.every(reported)) return 'standings';

@@ -500,6 +500,23 @@ button.sm { padding: 5px 10px; font-size: 13px; }
 
 .pair-hint { margin: 4px 0 0; font-size: 13px; color: var(--dim); }
 
+/* Shown on the Round tab when Carde.io owns the pairings. */
+.lock {
+  background: rgba(242, 131, 60, 0.12);
+  border: 1px solid var(--magma);
+  border-left: 4px solid var(--magma);
+  border-radius: 7px;
+  padding: 12px 14px;
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.lock b { color: var(--magma); }
+
+button:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+
 .table-tag {
   flex: none;
   background: var(--bg-2);
