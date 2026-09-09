@@ -26,12 +26,21 @@
 
   <section class="dsp-body">
     <ol id="dsp-standings" class="standings"></ol>
+    <ul id="dsp-pairings" class="pairings" hidden></ul>
     <p id="dsp-empty" class="dsp-empty">Add teams to get started.</p>
   </section>
 </main>
 
 <!-- ============ CONTROL PANEL ============ -->
 <div id="control" hidden>
+  <header class="brand">
+    <img src="icon.svg" alt="" class="brand-mark">
+    <div>
+      <h1>Magma Chamber</h1>
+      <p>Riftbound 2v2 event control</p>
+    </div>
+  </header>
+
   <nav class="tabs">
     <button data-tab="setup" class="on">Setup</button>
     <button data-tab="teams">Teams</button>
@@ -52,6 +61,12 @@
     </label>
     <label>Points awarded for a bye
       <input id="ev-bye" type="number" min="0" max="99" value="8">
+    </label>
+    <label>Number of tables in the store
+      <input id="ev-tables" type="number" min="1" max="99" value="8">
+    </label>
+    <label>Show pairings on the TV for (minutes, 0 = never)
+      <input id="ev-pairing-mins" type="number" min="0" max="60" value="8">
     </label>
 
     <h2>Import players</h2>

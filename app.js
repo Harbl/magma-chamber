@@ -40,7 +40,7 @@ let state = load();
 
 function blank() {
   return {
-    name: '', minutes: 50, byePoints: 8,
+    name: '', minutes: 50, byePoints: 8, tables: 8, pairingMinutes: 8,
     players: [],            // {id, name, legend}
     teams: [],              // {id, name, players:[id,id], custom:bool}
     rounds: [],             // {n, pairings:[{a, b|null, winner, pa, pb}], endsAt, pausedMs, running}
@@ -84,6 +84,14 @@ function legendOf(name) { return legends.find(l => l.name === name) || null; }
 function legendColor(name) {
   const l = legendOf(name);
   return l && l.domains.length ? (DOMAIN_COLOR[l.domains[0]] || DOMAIN_COLOR.Colorless) : 'transparent';
+}
+
+// Riot's CDN is a Sanity instance, so a square top crop at webp turns a ~1.1MB
+// card scan into ~6KB -- worth doing when a dozen of these sit on screen.
+function legendArt(name) {
+  const l = legendOf(name);
+  if (!l || !l.image) return null;
+  return l.image + (l.image.includes('?') ? '&' : '?') + 'w=160&h=160&fit=crop&crop=top&fm=webp';
 }
 
 // ---------------------------------------------------------------- scoring
@@ -161,7 +169,9 @@ function makePairings() {
   // Pair down the standings, backtracking when the only option is a rematch.
   const pairs = walk(pool);
   if (!pairs) return null;
-  if (bye !== null) pairs.push({ a: bye, b: null, pa: state.byePoints ?? 8, pb: null });
+  // Tables run 1..n down the standings, so table 1 is always the feature match.
+  pairs.forEach((p, i) => { p.table = i + 1; });
+  if (bye !== null) pairs.push({ a: bye, b: null, winner: null, pa: state.byePoints ?? 8, pb: null, table: null });
   return pairs;
 
   function walk(rest) {
@@ -203,21 +213,54 @@ function render() {
   if (isDisplay) renderDisplay(); else renderControl();
 }
 
+// Art if the player has a Legend, otherwise a plain domain-coloured dot.
+function playerChip(id) {
+  const p = player(id);
+  if (!p) return '';
+  const art = legendArt(p.legend);
+  const mark = art
+    ? `<img class="legend-art" src="${art}" alt="${esc(shortLegend(p.legend))}"
+         title="${esc(p.legend)}" style="border-color:${legendColor(p.legend)}" loading="lazy">`
+    : '<i class="legend-chip" style="background:var(--line)"></i>';
+  return `<span>${mark}${esc(p.name)}</span>`;
+}
+
 function renderDisplay() {
   $('#dsp-event').textContent = state.name || 'Magma Chamber';
   const r = currentRound();
-  $('#dsp-round').textContent = r ? `Round ${r.n}` : 'Waiting to start';
+  const mode = displayMode();
+  if (mode !== lastMode) { scrollAt = 0; atBottom = false; holdUntil = 0; }
+  lastMode = mode;
+  $('#dsp-round').textContent = !r ? 'Waiting to start'
+    : mode === 'pairings' ? `Round ${r.n} — Pairings` : `Round ${r.n} — Standings`;
+
+  $('#dsp-pairings').hidden = mode !== 'pairings';
+  $('#dsp-standings').hidden = mode === 'pairings';
+
+  if (mode === 'pairings') {
+    $('#dsp-empty').hidden = true;
+    $('#dsp-pairings').innerHTML = r.pairings.map(p => p.b === null
+      ? `<li class="pr-row pr-bye">
+           <div class="pr-table">—</div>
+           <div class="pr-teams"><span class="pr-team">${esc(teamName(p.a))}</span></div>
+           <div class="pr-bye-tag">BYE</div>
+         </li>`
+      : `<li class="pr-row">
+           <div class="pr-table"><i>Table</i>${p.table ?? '—'}</div>
+           <div class="pr-teams">
+             <span class="pr-team">${esc(teamName(p.a))}</span>
+             <span class="pr-vs">vs</span>
+             <span class="pr-team">${esc(teamName(p.b))}</span>
+           </div>
+         </li>`).join('');
+    tick();
+    return;
+  }
 
   const rows = standings();
   $('#dsp-empty').hidden = rows.length > 0;
   $('#dsp-standings').innerHTML = rows.map((s, i) => {
-    const ps = s.team.players.map(id => {
-      const p = player(id);
-      if (!p) return '';
-      const c = legendColor(p.legend);
-      const chip = p.legend ? `<i class="legend-chip" style="background:${c}"></i>` : '';
-      return `<span>${chip}${esc(p.name)}${p.legend ? ` &middot; ${esc(shortLegend(p.legend))}` : ''}</span>`;
-    }).join('');
+    const ps = s.team.players.map(playerChip).join('');
     return `<li class="${i === 0 ? 'top' : ''}" style="--rank-color:${i === 0 ? 'var(--gold)' : 'var(--line)'}">
       <div class="st-rank">${i + 1}</div>
       <div class="st-team">
@@ -232,8 +275,12 @@ function renderDisplay() {
   tick();
 }
 
+let lastMode = null;
+
 function tick() {
   if (!isDisplay) return;
+  // The pairings-to-standings switch is time-based, so poll for it here.
+  if (displayMode() !== lastMode) { renderDisplay(); return; }
   const el = $('#dsp-timer'), label = $('#dsp-timer-label');
   const r = currentRound();
   const ms = remainingMs();
@@ -254,6 +301,8 @@ function renderControl() {
   $('#ev-name').value = state.name;
   $('#ev-minutes').value = state.minutes;
   $('#ev-bye').value = state.byePoints ?? 8;
+  $('#ev-tables').value = state.tables ?? 8;
+  $('#ev-pairing-mins').value = state.pairingMinutes ?? 8;
   $('#player-count').textContent = state.players.length ? `(${state.players.length})` : '';
   $('#archive-count').textContent = state.archive.length ? `(${state.archive.length})` : '';
 
@@ -287,10 +336,12 @@ function renderControl() {
   $('#pairing-list').innerHTML = !r ? '<li class="sub">No pairings yet.</li>' : r.pairings.map((p, i) => {
     if (p.b === null) return `<li><span class="grow">${esc(teamName(p.a))}</span>
       <span class="bye">BYE &middot; ${p.pa} pts</span></li>`;
+    const tableTag = p.table ? `<span class="table-tag">Table ${p.table}</span>` : '';
     const w = p.winner;
     const cls = side => w ? (w === 'draw' ? 'drew' : (w === side ? 'won' : 'lost')) : '';
     return `<li class="pair-card">
       <div class="pair-teams">
+        ${tableTag}
         <button class="team-pick ${cls('a')}" data-pick="${i}:a">${esc(teamName(p.a))}</button>
         <span class="pair-vs">vs</span>
         <button class="team-pick ${cls('b')}" data-pick="${i}:b">${esc(teamName(p.b))}</button>
@@ -430,6 +481,8 @@ if (!isDisplay) {
   $('#ev-name').oninput = e => { state.name = e.target.value; localStorage.setItem(KEY, JSON.stringify(state)); chan.postMessage(state); };
   $('#ev-minutes').onchange = e => { state.minutes = Math.max(1, +e.target.value || 50); save(); };
   $('#ev-bye').onchange = e => { state.byePoints = Math.max(0, +e.target.value || 0); save(); };
+  $('#ev-tables').onchange = e => { state.tables = Math.max(1, +e.target.value || 1); save(); };
+  $('#ev-pairing-mins').onchange = e => { state.pairingMinutes = Math.max(0, +e.target.value || 0); save(); };
 
   $('#btn-import').onclick = async () => {
     const id = $('#ev-id').value.trim().replace(/\D/g, '');
@@ -506,7 +559,11 @@ if (!isDisplay) {
     if (!pairings) return msg('#round-msg', 'Could not build pairings.', 'err');
     state.rounds.push({ n: state.rounds.length + 1, pairings, endsAt: 0, pausedMs: state.minutes * 60000, running: false });
     save();
-    msg('#round-msg', `Round ${state.rounds.length} paired.`, 'ok');
+    const needed = pairings.filter(p => p.b !== null).length;
+    if (needed > (state.tables ?? 8))
+      msg('#round-msg', `Round ${state.rounds.length} paired, but it needs ${needed} tables and only ${state.tables} are set up.`, 'err');
+    else
+      msg('#round-msg', `Round ${state.rounds.length} paired across ${needed} table${needed === 1 ? '' : 's'}.`, 'ok');
   };
 
   $('#btn-start').onclick = () => {
@@ -664,26 +721,52 @@ function showToast(text) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 1400);
 }
 
-// Creep the standings up and down so a list taller than the TV stays readable
-// without anyone touching the laptop. Pauses at each end before turning around.
+// Creep the list down so more teams than fit on the TV still get seen, then hold
+// at the bottom and snap back to the top. One direction only -- a list that
+// crawls back upwards reads as broken.
 const SCROLL_PX_PER_SEC = 18, SCROLL_HOLD_MS = 4000;
-let scrollAt = 0, scrollDir = 1, holdUntil = 0, lastFrame = 0;
+let scrollAt = 0, holdUntil = 0, lastFrame = 0, atBottom = false;
 
 function autoScroll(ts) {
   requestAnimationFrame(autoScroll);
   const box = $('.dsp-body');
   if (!box) return;
-  const dt = lastFrame ? (ts - lastFrame) / 1000 : 0;
+  const dt = lastFrame ? Math.min((ts - lastFrame) / 1000, 0.1) : 0;
   lastFrame = ts;
 
   const max = box.scrollHeight - box.clientHeight;
-  if (max <= 1) { scrollAt = 0; scrollDir = 1; box.scrollTop = 0; return; }
+  if (max <= 1) { scrollAt = 0; atBottom = false; box.scrollTop = 0; return; }
   if (ts < holdUntil) return;
 
-  scrollAt += scrollDir * SCROLL_PX_PER_SEC * dt;
-  if (scrollAt >= max) { scrollAt = max; scrollDir = -1; holdUntil = ts + SCROLL_HOLD_MS; }
-  else if (scrollAt <= 0) { scrollAt = 0; scrollDir = 1; holdUntil = ts + SCROLL_HOLD_MS; }
+  if (atBottom) {                      // hold expired at the bottom -- back to the top
+    atBottom = false;
+    scrollAt = 0;
+    box.scrollTop = 0;
+    holdUntil = ts + SCROLL_HOLD_MS;   // and pause again before setting off
+    return;
+  }
+
+  scrollAt += SCROLL_PX_PER_SEC * dt;
+  if (scrollAt >= max) {
+    scrollAt = max;
+    atBottom = true;
+    holdUntil = ts + SCROLL_HOLD_MS;
+  }
   box.scrollTop = scrollAt;
+}
+
+// The TV leads with pairings so players can find their table, then falls back to
+// the leaderboard for the rest of the round.
+function displayMode() {
+  const r = currentRound();
+  if (!r || !r.pairings.length) return 'standings';
+  const mins = state.pairingMinutes ?? 8;
+  if (mins <= 0) return 'standings';
+  if (r.pairings.every(reported)) return 'standings';
+
+  const total = (state.minutes || 50) * 60000;
+  const left = r.running ? Math.max(0, r.endsAt - Date.now()) : (r.pausedMs ?? total);
+  return (total - left) < mins * 60000 ? 'pairings' : 'standings';
 }
 
 fetch('data/legends.json')

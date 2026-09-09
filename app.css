@@ -33,12 +33,17 @@ body {
 
 /* ---------------- TV DISPLAY ---------------- */
 
+/* The TV window is exactly one screen tall and never scrolls itself; the
+   standings list is scrolled by script inside .dsp-body instead. */
+body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
+
 #display {
   /* Master text scale for the TV. Adjust live with + / - / 0 on the display
      window -- room size and mount distance vary too much for one fixed value.
      Defaults are tuned for a ~46in 1080p set read from roughly 10-12 feet. */
   --tv: 1;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background:
@@ -169,6 +174,17 @@ body {
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
 }
 
+/* Legend portrait instead of the legend's name -- reads far better at distance. */
+.legend-art {
+  width: calc(2.6vw * var(--tv));
+  height: calc(2.6vw * var(--tv));
+  border-radius: 0.4vw;
+  object-fit: cover;
+  flex: none;
+  border: 2px solid var(--line);
+  background: var(--bg-2);
+}
+
 .st-record {
   font-size: calc(2vw * var(--tv));
   color: var(--dim);
@@ -198,6 +214,72 @@ body {
 
 .dsp-empty { color: var(--dim); font-size: calc(1.8vw * var(--tv)); text-align: center; margin-top: 12vh; }
 
+/* ---- TV pairings view ---- */
+
+.pairings { list-style: none; margin: 0; padding: 0; display: grid; gap: 1vh; }
+
+.pr-row {
+  display: grid;
+  grid-template-columns: 9vw 1fr;
+  align-items: center;
+  gap: 2vw;
+  padding: 1.4vh 1.6vw;
+  background: linear-gradient(90deg, var(--panel) 0%, rgba(20, 28, 46, 0.45) 100%);
+  border: 1px solid var(--line);
+  border-left: 0.5vw solid var(--gold);
+  border-radius: 0.5vw;
+}
+
+.pr-table {
+  font-size: calc(3.2vw * var(--tv));
+  font-weight: 800;
+  color: var(--gold-hi);
+  text-align: center;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.pr-table i {
+  display: block;
+  font-style: normal;
+  font-size: calc(0.9vw * var(--tv));
+  font-weight: 600;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  margin-bottom: 0.4vh;
+}
+
+.pr-teams {
+  display: flex;
+  align-items: center;
+  gap: 1.6vw;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.pr-team {
+  font-size: calc(2.6vw * var(--tv));
+  font-weight: 700;
+}
+
+.pr-vs {
+  font-size: calc(1.4vw * var(--tv));
+  color: var(--gold);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.pr-bye { border-left-color: var(--dim); opacity: 0.75; }
+
+.pr-bye-tag {
+  font-size: calc(1.6vw * var(--tv));
+  color: var(--gold);
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
 /* Brief confirmation when the TV text scale is nudged. */
 .tv-toast {
   position: fixed;
@@ -222,7 +304,13 @@ body {
 
 /* ---------------- CONTROL PANEL ---------------- */
 
-#control { max-width: 900px; margin: 0 auto; padding: 20px 20px 80px; }
+#control { max-width: 900px; margin: 0 auto; padding: 0 20px 80px; }
+
+/* Small mark, top left -- the TV carries the branding, this window carries work. */
+.brand { display: flex; align-items: center; gap: 12px; padding: 18px 0 14px; }
+.brand-mark { width: 38px; height: 38px; flex: none; }
+.brand h1 { margin: 0; font-size: 19px; font-weight: 800; letter-spacing: 0.01em; }
+.brand p { margin: 1px 0 0; font-size: 12px; color: var(--dim); letter-spacing: 0.06em; text-transform: uppercase; }
 
 .tabs {
   display: flex;
@@ -370,6 +458,19 @@ button.sm { padding: 5px 10px; font-size: 13px; }
 }
 
 .pair-hint { margin: 4px 0 0; font-size: 13px; color: var(--dim); }
+
+.table-tag {
+  flex: none;
+  background: var(--bg-2);
+  border: 1px solid var(--gold);
+  color: var(--gold-hi);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 6px 10px;
+  border-radius: 5px;
+}
 
 .pair-scores {
   display: flex;

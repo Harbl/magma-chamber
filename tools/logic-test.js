@@ -91,6 +91,37 @@ const byes = run(`state.rounds.flatMap(r=>r.pairings.filter(p=>p.b===null).map(p
 check('3 byes handed out', byes.length === 3, JSON.stringify(byes));
 check('no team byed twice', new Set(byes).size === 3, JSON.stringify(byes));
 
+// --- 3b. table assignment --------------------------------------------------
+console.log('\ntable numbers:');
+seed(7);
+run(`state.tables = 8; state.rounds.push({n:1, pairings: makePairings(), endsAt:0, pausedMs:0, running:false})`);
+check('tables numbered 1..n down the standings',
+  run(`state.rounds[0].pairings.filter(p=>p.b!==null).map(p=>p.table).join(',')`) === '1,2,3');
+check('the bye gets no table', run(`state.rounds[0].pairings.find(p=>p.b===null).table`) === null);
+
+// --- 3c. TV switches pairings -> standings --------------------------------
+console.log('\nTV display mode:');
+seed(4);
+run(`state.minutes = 50; state.pairingMinutes = 8;`);
+check('no round yet shows standings', run(`displayMode()`) === 'standings');
+
+// Round paired but timer not started: pausedMs is the full round length.
+run(`state.rounds.push({n:1, pairings: makePairings(), endsAt:0, pausedMs: 50*60000, running:false})`);
+check('freshly paired round shows pairings', run(`displayMode()`) === 'pairings');
+
+run(`state.rounds[0].pausedMs = 50*60000 - 5*60000`);   // 5 minutes elapsed
+check('still pairings 5 min in (limit 8)', run(`displayMode()`) === 'pairings');
+
+run(`state.rounds[0].pausedMs = 50*60000 - 12*60000`);  // 12 minutes elapsed
+check('switches to standings past the limit', run(`displayMode()`) === 'standings');
+
+run(`state.rounds[0].pausedMs = 50*60000; state.pairingMinutes = 0`);
+check('0 minutes disables the pairings view', run(`displayMode()`) === 'standings');
+
+run(`state.pairingMinutes = 8;
+     state.rounds[0].pairings.forEach(p => { if (p.b !== null) { p.winner='a'; p.pa=10; p.pb=5; } })`);
+check('all results in flips to standings early', run(`displayMode()`) === 'standings');
+
 // --- 4. rematches avoided --------------------------------------------------
 console.log('\n8 teams, 3 rounds -- rematch avoidance:');
 seed(8);

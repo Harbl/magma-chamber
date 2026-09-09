@@ -83,9 +83,10 @@ with no browser chrome. No Terminal, ever.
    Leaving the name blank falls back to "Player A & Player B". *Auto-pair
    remaining players* does the rest in one press, and *Rename* fixes any of them.
 4. Press **Open TV Display** and drag that window to the TV, then fullscreen it.
-5. **Round** — *Generate pairings*, then *Start timer*. As each match finishes,
-   tap the winning team's name — it turns green, the loser turns red, and the
-   score boxes appear. Enter both teams' game points to record the match.
+5. **Round** — *Generate pairings*, then *Start timer*. Each match is assigned a
+   table number, counting down the standings so table 1 is the top match. As each
+   match finishes, tap the winning team's name — it turns green, the loser turns
+   red, and the score boxes appear. Enter both teams' game points to record it.
 6. *Finish round & continue* pairs the next round.
 7. At the end of the night, **Setup → Finish & archive event**. That saves the
    results and downloads a backup file automatically.
@@ -93,9 +94,20 @@ with no browser chrome. No Terminal, ever.
 The control window and the TV window stay in sync. Either can be refreshed
 mid-event without losing anything.
 
-The TV standings scroll themselves, slowly, pausing at each end — so a field
-too long to fit on screen still cycles into view without anyone touching the
-laptop. Short lists that already fit stay put.
+### What the TV shows
+
+When a round is paired the TV leads with the **pairings and table numbers**, so
+players can find their seat. After the configured number of minutes — or as soon
+as every result is in — it switches itself to the leaderboard. Set that to `0` on
+the Setup tab to skip the pairings view entirely.
+
+The TV window is exactly one screen tall and never grows a scrollbar. If the list
+is longer than the screen it creeps downward, holds at the bottom for a few
+seconds, then snaps back to the top and repeats. Lists that already fit stay put.
+
+Players who have a Legend assigned show its **card art** beside their name rather
+than the Legend's name — far easier to read across a room. Art is pulled from
+Riot's CDN as a 160px crop, so it costs about 6KB per Legend instead of 1.1MB.
 
 ### Sizing the TV text
 
