@@ -226,7 +226,6 @@ function playerChip(id) {
 }
 
 function renderDisplay() {
-  $('#dsp-event').textContent = state.name || 'Magma Chamber';
   const r = currentRound();
   const mode = displayMode();
   if (mode !== lastMode) { scrollAt = 0; atBottom = false; holdUntil = 0; }

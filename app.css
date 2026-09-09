@@ -75,28 +75,46 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   background: linear-gradient(90deg, transparent, var(--gold), transparent);
 }
 
-.dsp-title { min-width: 0; }
+.dsp-title { min-width: 0; flex: none; text-align: center; }
 
-#dsp-event {
+.dsp-shop {
   margin: 0;
-  font-size: calc(1.8vw * var(--tv));
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: calc(2vw * var(--tv));
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* The collab "x" -- thin, muted, and sized well below the two names it joins. */
+.collab-x {
+  font-size: calc(1.1vw * var(--tv));
+  line-height: 1;
+  color: var(--gold);
+  opacity: 0.75;
+  margin: 0.5vh 0;
+}
+
+.dsp-app {
+  margin: 0;
+  font-size: calc(2vw * var(--tv));
+  font-weight: 800;
+  letter-spacing: 0.02em;
   color: var(--gold-hi);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 #dsp-round {
-  margin: 0.3vh 0 0;
-  font-size: calc(1.3vw * var(--tv));
+  margin: 0.8vh 0 0;
+  font-size: calc(1.1vw * var(--tv));
   color: var(--dim);
   text-transform: uppercase;
   letter-spacing: 0.22em;
+  white-space: nowrap;
 }
 
-.dsp-clock { text-align: right; flex: none; }
+/* Centred in the space left over rather than jammed against the right edge. */
+.dsp-clock { flex: 1; text-align: center; min-width: 0; }
 
 .timer {
   /* Deliberately not scaled by --tv: at 13vw it already reads from ~45ft, and
