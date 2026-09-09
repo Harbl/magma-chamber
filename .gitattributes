@@ -1,0 +1,9 @@
+# The macOS launcher must keep LF endings -- bash fails on CRLF with a
+# confusing "\r: command not found" before it ever starts the server.
+*.command text eol=lf
+tools/serve.js text eol=lf
+
+# The Windows launcher wants CRLF.
+*.bat text eol=crlf
+
+* text=auto

@@ -27,50 +27,42 @@ Double-click **`Magma Chamber (Windows).bat`**. It starts a local server and
 opens the app. Closing the console window stops it. Node.js is the only
 requirement.
 
-Signup import works locally with no further setup — the locator API allows
-browser requests from `localhost`, so the page calls it directly. The Cloudflare
-Worker below is only needed once the app is hosted somewhere else.
-
-> Use `http://localhost:8080`, not `http://127.0.0.1:8080`. The API allowlists
-> the hostname `localhost` specifically, and the two are not interchangeable here.
-
 To try the TV view on a second monitor, press **Open TV Display** and drag that
 window across.
 
 ---
 
-## Deploying for the shop (macOS)
+## Setting up the shop MacBook
 
-### 1. Deploy the signup proxy
+Copy this folder to the Mac and double-click **`Magma Chamber (macOS).command`**.
+It starts a local server and opens the app. Keep the Terminal window open; closing
+it stops the app.
 
-A hosted page can't call the locator API directly — only `localhost` and the
-locator's own domain are allowed. The Worker in `worker/` makes that request
-server-side. It proxies two read-only endpoints and nothing else.
+Nothing else is required — no Cloudflare account, no hosting, no proxy. Serving
+from `localhost` is the whole trick: the locator API allowlists that hostname, so
+signup import works directly.
 
-```bash
-cd worker
-npx wrangler deploy
-```
+> It must be `http://localhost:8080`, never `http://127.0.0.1:8080`. The API
+> allowlists the hostname, and the two are not interchangeable here.
 
-Copy the `https://….workers.dev` URL it prints.
+The launcher uses whichever runtime the Mac already has — Node, the Ruby that
+ships with macOS, PHP, or Python — and only asks you to install Node if it finds
+none of them.
 
-### 2. Point the app at it
+If macOS refuses to run it, the file lost its executable bit in transit. In
+Terminal: `chmod +x "Magma Chamber (macOS).command"`. On first run, Gatekeeper may
+need **right-click → Open** rather than a double-click.
 
-In `app.js`, set the constant near the top:
+### Giving it a Dock icon
 
-```js
-const PROXY = 'https://magma-chamber-proxy.you.workers.dev';
-```
+`localhost` counts as a secure origin, so Chrome will install it as a real app:
+open `http://localhost:8080`, then **⋮ → Cast, save and share → Install page as
+app**. That gives a Dock icon opening fullscreen with no browser chrome.
 
-### 3. Publish
-
-Push to GitHub, then **Settings → Pages → Deploy from branch → main / root**.
-
-### 4. Make the shop's icon
-
-On the shop MacBook, open the URL in Chrome, then **⋮ → Cast, save and share →
-Install page as app**. That puts a real icon in the Dock which opens fullscreen
-with no browser chrome. No Terminal, ever.
+The launcher still has to be running first, so the simplest habit is to keep the
+`.command` on the Desktop and double-click it when opening the shop. Running it
+again when it's already up just reopens the window rather than starting a second
+server.
 
 ---
 
@@ -159,8 +151,18 @@ sw.js           offline cache, so dropped wifi doesn't kill the scoreboard
 data/legends.json   49 Legends with domains and card art
 tools/serve.js      local static server used by the Windows launcher
 tools/          legend fetcher and the logic test suite
-worker/         Cloudflare Worker CORS proxy, for hosted deployments only
+worker/         optional CORS proxy, only if you ever host this on the web
 ```
+
+## If you ever host it instead
+
+Running locally is the recommended setup and needs no proxy. A *hosted* copy is
+different: the locator API rejects browser requests from any origin except
+`localhost` and its own domain, so signup import would break.
+
+`worker/` covers that case. Deploy it with `npx wrangler deploy`, then set
+`PROXY` near the top of `app.js` to the `https://….workers.dev` URL it prints.
+Leave `PROXY` empty for local use.
 
 ## Notes on the data
 

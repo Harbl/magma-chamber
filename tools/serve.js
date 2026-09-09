@@ -32,7 +32,8 @@ http.createServer((req, res) => {
     });
     res.end(data);
   });
-}).listen(PORT, () => {
+// Loopback only -- this runs on shop wifi and nothing off the machine needs it.
+}).listen(PORT, '127.0.0.1', () => {
   console.log(`\n  Magma Chamber running at  http://localhost:${PORT}\n`);
   console.log('  Signup import works here because localhost is allowlisted by the API.');
   console.log('  Press Ctrl+C to stop.\n');
