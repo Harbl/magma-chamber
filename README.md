@@ -170,37 +170,45 @@ event is archived.
 
 | mode | pairings | scoring | reporting |
 |---|---|---|---|
-| **local** (default) | this app, Swiss | this app, game points | nowhere |
-| **UVS mirror** | UVS | none — UVS's own | players, on UVS |
-| **Carde.io** | Carde.io | this app, game points | pushed to Carde.io |
+| **2v2** (default) | this app, Swiss | this app, game points | typed into Carde from the Results tab |
+| **1v1** (`state.uvsMode`) | UVS | none — UVS's own | players, on UVS |
 
-Only one can own a round, and UVS mode disables *Generate pairings* and
-*Finish round & continue* — buttons and handlers both.
+Ticking *Show the UVS event* disables *Generate pairings* and *Finish round &
+continue* — buttons and handlers both.
 
-`uvsMirroring()` is the predicate separating the two UVS modes. It gates every
-display branch, so team mode falls straight through to ordinary local-round
-rendering and the TV shows team names rather than captains.
+## Carde.io was removed entirely (2026-09-13)
 
-## Carde.io is hidden, not deleted
+`carde.js`, the tab, the token auth, the reporting client and all their tests are
+**deleted**, not hidden. Two things settled it:
 
-The tab carries `hidden`, and `carde.js` still ships and still works. Nothing was
-removed, because the evidence is strong but not conclusive:
+1. **There is no publicly reachable Carde.io API for this.** Auth is Auth0 with no
+   public login, and reporting requires a pairing that already exists in Carde.
+2. **It isn't needed.** The shop can set the Carde event to **multiplayer
+   unpaired**, which skips pairings entirely and takes a plain win/loss per
+   player. Nobody has to be dropped from the event, every player's match data
+   still reaches Riot, and the only cost is manual entry between rounds.
 
-- **Marymoor Games has no Carde.io record at all** — `/api/play/establishments/?name=`
-  searches all 1331 stores and returns nothing — yet it runs locator events weekly.
-  A shop can therefore run Riftbound OP with zero Carde presence.
-- Zulu's has one unverified record, with no events under it.
-- Riftbound is absent from the public 97-game `masterData` list.
-- The locator calls `api.carde.io` **only** for `/api/core/users/` and
-  `/api/core/gameUsers/` — accounts, not events.
+That manual entry is what the **Results tab** exists to make fast. Background on
+the Carde/UVS relationship is in the `reference-cardeio-api` memory if it ever
+comes back.
 
-So Carde is the shared login and store directory; the locator is the event
-pipeline. Jake has corrected a premature "Riftbound isn't on Carde" call twice, so
-this stays behind a `hidden` attribute rather than being ripped out, until the
-shop confirms where they actually type results. Full trail in the
-`reference-cardeio-api` memory.
+## The Results tab
 
-## UVS 1v1 — mirror
+`roundResults(n)` returns every player in a round with their own result,
+**sorted alphabetically, case-insensitively** — a multiplayer-unpaired event is
+entered player by player, and hunting for names in pairing order is where the
+organiser's time goes.
+
+Both team-mates inherit their team's result; a bye is a win for both. An
+unreported match yields `null` and renders as *not reported* rather than silently
+reading as a loss.
+
+Rows are colour-coded so the eye can run down the list while typing into another
+window. **Copy as text** puts one `Name — Result` per line on the clipboard, and
+falls back to a `.txt` download when the clipboard is blocked — it needs a secure
+context and permission, neither of which is guaranteed.
+
+## UVS 1v1 mirror
 
 For **1v1** nights — Nexus Nights, skirmishes, store events — UVS does the
 pairing and the players report their own results. There is nothing for this app
@@ -239,32 +247,6 @@ number starts a fresh one.
 `displayMode()` and `allIn()` treat "everyone has reported" as the cue to swap to
 standings, whichever source is supplying the rows.
 
-## UVS 2v2 — matched by captain
-
-UVS has **no 2v2 support**: 25 sampled events named "2v2" were every one
-`is_team_event: false` with `maximum_number_of_players_in_match: 2`, and no match
-ever held more than two players.
-
-The shop's workaround is the one the app now builds on. **At check-in, each team
-nominates a captain and the team-mate is dropped from the locator event.** UVS
-then pairs captains, one per team, and the night still counts as store activity.
-
-Pick *2v2 — match to teams by captain*. Each team gets a **captain** dropdown on
-the Teams tab, defaulting to the first player. `teamByCaptain()` resolves a UVS
-name against captains **only** — a team-mate's name deliberately does not match,
-since they are not the one registered.
-
-`applyUvsTeams()` then turns that into an ordinary scored round between the two
-*teams*, which is why the leaderboard, table numbers, winner highlighting and
-points entry all work untouched. The captain's win becomes the team's win.
-
-Unmatched captain names are listed back in the message line. A pairing whose two
-names resolve to the same team, or to nothing, is dropped rather than guessed.
-Refreshing keeps points already typed, since UVS has no idea about them.
-
-Switching between 1v1 and 2v2 clears `state.rounds` — a round pulled in one mode
-means something different in the other.
-
 ## Overtime clock
 
 `state.overtime` (minutes, 0 = off) on the Setup tab. `clock()` returns
@@ -281,63 +263,11 @@ means something different in the other.
 `remainingMs()` is unchanged — it still clamps at zero and drives the
 pairings/standings switch, which should not care about overtime.
 
-## Carde.io reporting
-
-The **Carde.io** tab pulls a round's pairings from the shop's Carde.io event and
-reports results back, so Riot sees the store's activity without anyone
-double-entering it.
-
-Carde.io has no team concept, so results go in **per player** — which matches how
-the shop reports today.
-
-### Getting a token
-
-Carde.io authenticates through Auth0 and has no public login for third-party
-tools, so a proper "Log in with Carde.io" button isn't possible unless Carde
-registers a callback for us. Until then the organiser pastes their own token:
-
-1. Sign in at **dashboard.carde.io** in Chrome.
-2. Open DevTools (**⌥⌘I**) and pick the **Network** tab.
-3. Click anything in the dashboard that loads data.
-4. Select any request to `api.carde.io`, open **Headers**, and find
-   **`authorization: Bearer …`** under Request Headers.
-5. Copy everything after `Bearer ` and paste it into the Carde.io tab.
-
-Tokens expire, so expect to repeat this each event night. The app says
-*"Token rejected — it has probably expired"* when that happens.
-
-> Worth asking Carde.io support for proper API access. The auth layer is a single
-> swappable seam, so an API key or a registered callback drops in without
-> reworking anything else.
-
-### Using it
-
-Connect, choose the store, game and event, then **Load rounds** and
-**Show pairings**. Each pairing gets buttons to report a winner, a draw, or a
-double loss. Reported pairings are marked, and the list refreshes after each push.
-
-Pair the round **in Carde.io first** — reporting needs Carde's own pairing IDs,
-which only exist once Carde has paired.
-
-### Carde.io takes over pairing
-
-Once a token is connected **and** a round has been loaded, Carde.io owns the
-event. *Generate pairings* and *Finish round & continue* are disabled on the
-Round tab and an explanation replaces them, because two sets of pairings would
-mean results getting reported against the wrong matches.
-
-The handlers refuse as well, not just the buttons — a disabled button is not the
-only way to reach them.
-
-The timer, teams and stats keep working, and the TV falls back to showing
-Carde.io's pairings and table numbers. Disconnecting hands pairing straight back
-to the local Swiss engine.
-
 ## The two repositories
 
 | | branch | contains |
 |---|---|---|
-| **magma-chamber-private** | `main` | everything — this README, the tests, `worker/`, the Carde.io notes |
+| **magma-chamber-private** | `main` | everything — this README, the tests, `worker/` |
 | **magma-chamber** (public) | `main` | the app only, with a plain-English README for shop staff |
 
 `main` tracks `private/main`, so a bare `git push` updates the private repo.
@@ -347,7 +277,7 @@ files: `MAC-SETUP.md`, `worker/`, `tools/logic-test.js` and
 `tools/fetch-legends.js`.
 
 **The public README only exists on the `public` branch** — it started as
-`MAC-SETUP.md` but has since diverged, covering Windows setup and Carde.io as
+`MAC-SETUP.md` but has since diverged, covering Windows setup and UVS mode as
 well. Edit it there and `commit --amend` onto the strip-down commit; there is no
 copy on `main` to keep in sync.
 
@@ -383,7 +313,6 @@ node tools/logic-test.js
 ```
 index.html      markup for both the control panel and the TV display
 app.js          state, scoring, Swiss pairings, timer, import/export
-carde.js        Carde.io API client (pull pairings, report results)
 app.css         theming; display view is sized in vw/vh for TV legibility
 sw.js           offline cache, so dropped wifi doesn't kill the scoreboard
 data/legends.json   49 Legends with domains and card art

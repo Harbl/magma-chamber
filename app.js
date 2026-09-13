@@ -43,14 +43,11 @@ function blank() {
     name: '', minutes: 50, byePoints: 8, tables: 8, pairingMinutes: 8, overtime: 0,
     shopName: '', brandMode: 'text',   // venue half of the TV lockup; logo itself is in LOGO_KEY
     eventId: '', uvsMode: false,       // locator event, and whether it owns the pairings
-    uvsUse: 'mirror',                  // 'mirror' = 1v1, show it; 'teams' = 2v2, match by captain
     uvsRound: 0, uvsPairings: null, uvsStandings: null,
     players: [],            // {id, name, legend}
     teams: [],              // {id, name, players:[id,id], custom:bool}
     rounds: [],             // {n, pairings:[{a, b|null, winner, pa, pb}], endsAt, pausedMs, running}
     order: null,            // manual team-id order for the TV, or null
-    cardePairings: null,    // trimmed copy of Carde.io's pairings, for the TV
-    cardeRoundLabel: '',
     archive: [],
   };
 }
@@ -138,15 +135,6 @@ function setImg(sel, url) {
 }
 
 // ---------------------------------------------------------------- lookups
-
-// Carde.io is in charge once it is connected and a round has been loaded from it.
-const cardeActive = () =>
-  typeof Carde !== 'undefined' && Carde.isConnected() && !!Carde.context().roundId;
-
-// UVS can drive the night two ways. Mirroring (1v1) puts its rows straight on the
-// TV and scores nothing. Team mode (2v2) turns its captain pairings into a normal
-// scored round, so from here down everything behaves exactly as it always did.
-const uvsMirroring = () => state.uvsMode && state.uvsUse !== 'teams';
 
 const team = id => state.teams.find(t => t.id === id);
 const player = id => state.players.find(p => p.id === id);
@@ -334,8 +322,8 @@ function renderDisplay() {
   const mode = displayMode();
   if (mode !== lastMode) { scrollAt = 0; atBottom = false; holdUntil = 0; }
   lastMode = mode;
-  const roundName = uvsMirroring() ? (state.uvsRound ? `Round ${state.uvsRound}` : '')
-    : r ? `Round ${r.n}` : (state.cardeRoundLabel || '');
+  const roundName = state.uvsMode ? (state.uvsRound ? `Round ${state.uvsRound}` : '')
+    : r ? `Round ${r.n}` : '';
   $('#dsp-round').textContent = !roundName ? 'Waiting to start'
     : `${roundName} — ${mode === 'pairings' ? 'Pairings' : 'Standings'}`;
 
@@ -363,7 +351,7 @@ function renderDisplay() {
 
   // Mirroring UVS means showing UVS's own standings -- ranked on its match
   // points, not this app's game points, because nothing is scored here.
-  const rows = uvsMirroring()
+  const rows = state.uvsMode
     ? (state.uvsStandings || []).map((s, i) => ({
         rank: s.rank ?? i + 1, name: s.name, chips: '',
         w: s.w, l: s.l, d: s.d, points: s.pts,
@@ -447,10 +435,6 @@ function renderControl() {
 
   $('#team-list').innerHTML = state.teams.map(t => `
     <li>
-      <span class="grow"><b>${esc(t.name)}</b><br><span class="sub">${t.players.map(id => esc(player(id)?.name ?? '?')).join(' &amp; ')}</span></span>
-      <label class="cap"><span>Captain</span>
-        <select data-captain="${t.id}">${t.players.map(id =>
-          `<option value="${id}"${captainOf(t) === id ? ' selected' : ''}>${esc(player(id)?.name ?? '?')}</option>`).join('')}</select>
       </label>
       <button class="ghost sm" data-rename="${t.id}">Rename</button>
       <button class="ghost sm" data-del-team="${t.id}">Disband</button>
@@ -460,20 +444,16 @@ function renderControl() {
   const r = currentRound();
   $('#round-num').textContent = r ? r.n : '—';
 
-  // Once Carde.io owns the pairings, local pairing has to be off or the two
+  // Once the locator owns the pairings, local pairing has to be off or the two
   // disagree and results get reported against the wrong matches.
-  const locked = cardeActive() || state.uvsMode;
-  $('#carde-lock').hidden = !cardeActive();
-  $('#uvs-lock').hidden = !state.uvsMode || cardeActive();
+  const locked = state.uvsMode;
+  $('#uvs-lock').hidden = !state.uvsMode;
   $('#uvs-on').checked = !!state.uvsMode;
-  $('#btn-uvs').disabled = !state.uvsMode || cardeActive();
-  $('#uvs-use-pick').hidden = !state.uvsMode;
-  $('#uvs-use-teams').checked = state.uvsUse === 'teams';
-  $('#uvs-use-mirror').checked = state.uvsUse !== 'teams';
+  $('#btn-uvs').disabled = !state.uvsMode;
   ['#btn-pair', '#btn-next-round'].forEach(sel => { $(sel).disabled = locked; });
   // Mirroring UVS: nothing is scored here, so the list is read-only and just
   // shows what the players are looking at, including who has reported.
-  if (uvsMirroring()) {
+  if (state.uvsMode) {
     const rows = state.uvsPairings || [];
     $('#pairing-list').innerHTML = !rows.length
       ? '<li class="sub">Nothing pulled from UVS yet.</li>'
@@ -527,7 +507,25 @@ function renderControl() {
       </span>
     </li>`).join('') || '<li class="sub">No teams yet.</li>';
 
+  renderResults();
   renderStats();
+}
+
+function renderResults() {
+  const sel = $('#res-round');
+  const rounds = state.rounds.filter(r => r.pairings.length).map(r => r.n);
+  // Default to the round just finished, which is the one being typed up.
+  const want = rounds.includes(+sel.value) ? +sel.value : rounds[rounds.length - 1];
+  sel.innerHTML = rounds.map(n => `<option value="${n}"${n === want ? ' selected' : ''}>Round ${n}</option>`).join('');
+
+  const rows = want === undefined ? [] : roundResults(want);
+  $('#btn-copy-results').disabled = !rows.length;
+  $('#results-list').innerHTML = rows.length
+    ? rows.map(r => `<li class="res-row ${r.result ? r.result.toLowerCase() : 'pending'}">
+        <span class="grow"><b>${esc(r.name)}</b><br><span class="sub">${esc(r.team)}${r.bye ? ' &middot; bye' : ''}</span></span>
+        <span class="res-tag">${r.result || 'not reported'}</span>
+      </li>`).join('')
+    : '<li class="sub">Nothing to report yet — pair a round and record some results.</li>';
 }
 
 function renderStats() {
@@ -550,6 +548,41 @@ function renderStats() {
       <button class="ghost sm" data-del-archive="${i}">Delete</button></li>`).join('')
     : '<li class="sub">No saved events yet.</li>';
 }
+
+// ------------------------------------------------------- round results
+//
+// Carde.io has no public API we can reach, so reporting stays manual. What the
+// organiser actually needs between rounds is every player listed A-Z with their
+// own result, because a "multiplayer unpaired" event is entered player by player
+// and hunting for names in pairing order is where the time goes.
+//
+// Both team-mates take their team's result -- that is the whole point of the 2v2
+// workaround, and it means nobody has to be dropped from the event.
+
+function roundResults(n) {
+  const round = state.rounds.find(r => r.n === n);
+  if (!round) return [];
+  const rows = [];
+  for (const p of round.pairings) {
+    const res = outcome(p);
+    const sides = p.b === null ? [[p.a, 'Win']] : [
+      [p.a, res === 'draw' ? 'Draw' : res === 'a' ? 'Win' : res === 'b' ? 'Loss' : null],
+      [p.b, res === 'draw' ? 'Draw' : res === 'b' ? 'Win' : res === 'a' ? 'Loss' : null],
+    ];
+    for (const [teamId, result] of sides) {
+      const t = team(teamId);
+      if (!t) continue;
+      for (const id of t.players) {
+        const pl = player(id);
+        if (pl) rows.push({ name: pl.name, team: t.name, result, bye: p.b === null });
+      }
+    }
+  }
+  return rows.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+}
+
+const resultsText = n => roundResults(n)
+  .map(r => `${r.name} — ${r.result || 'not reported'}`).join('\n');
 
 // ---------------------------------------------------------------- messages
 
@@ -629,75 +662,9 @@ async function fetchUvs(id) {
   };
 }
 
-// Teams fall back to their first player so teams made before captains existed
-// still behave, rather than silently matching nothing.
-const captainOf = t => (t.captain && t.players.includes(t.captain)) ? t.captain : t.players[0];
-
-// At check-in the shop drops the team-mate from the locator event, so a UVS
-// pairing names captains. That name is the only handle back to a team.
-function teamByCaptain(name) {
-  const k = String(name || '').trim().toLowerCase();
-  if (!k) return null;
-  return state.teams.find(t => (player(captainOf(t))?.name || '').trim().toLowerCase() === k) || null;
-}
-
-// 2v2: turn the captains' pairing into a real scored round between their teams,
-// so the leaderboard, tables and points entry all work as they always have.
-function applyUvsTeams(feed) {
-  const prev = currentRound();
-  const unmatched = new Set();
-  const pairings = [];
-
-  for (const m of feed.pairings) {
-    const teams = m.names.map(n => {
-      const t = teamByCaptain(n);
-      if (!t) unmatched.add(n);
-      return t;
-    });
-    if (m.bye) {
-      if (teams[0]) pairings.push({ a: teams[0].id, b: null, winner: null, pa: state.byePoints ?? 8, pb: null, table: null });
-      continue;
-    }
-    const [A, B] = teams;
-    if (!A || !B || A.id === B.id) continue;   // unmappable, better dropped than guessed
-    pairings.push({
-      a: A.id, b: B.id, table: m.table ?? null,
-      winner: m.winner ? (teamByCaptain(m.winner)?.id === A.id ? 'a' : 'b') : null,
-      pa: null, pb: null,
-    });
-  }
-
-  // UVS knows nothing about points, so anything already typed has to survive a refresh.
-  const key = p => [p.a, p.b].sort().join('|');
-  const keep = {};
-  if (prev) for (const p of prev.pairings) keep[key(p)] = p;
-  for (const p of pairings) {
-    const had = keep[key(p)];
-    if (had) { p.pa = had.pa; p.pb = had.pb; p.winner = p.winner || had.winner; }
-  }
-
-  const round = { n: feed.round, pairings, endsAt: 0, pausedMs: (state.minutes || 50) * 60000, running: false };
-  if (prev && prev.n === feed.round) {
-    round.endsAt = prev.endsAt; round.pausedMs = prev.pausedMs; round.running = prev.running;
-    state.rounds[state.rounds.length - 1] = round;
-  } else {
-    state.rounds.push(round);
-  }
-  return { count: pairings.length, unmatched: [...unmatched] };
-}
-
 function applyUvs(feed) {
   state.uvsRound = feed.round;
   state.uvsStandings = feed.standings;
-
-  if (state.uvsUse === 'teams') {
-    // The TV shows the team round, not the captains' names, so no mirrored rows.
-    state.uvsPairings = null;
-    const res = applyUvsTeams(feed);
-    save();
-    return res;
-  }
-
   state.uvsPairings = feed.pairings;
   // A new round number gets a fresh clock; refreshing the same one leaves the
   // clock alone, so a mid-round poll cannot reset the timer on the TV.
@@ -745,7 +712,7 @@ function download(filename, text, type) {
 }
 
 // Per-player records, derived by giving both team-mates their team's results.
-// Carde.io (and the locator) model events as individual players with no team
+// The locator models events as individual players with no team
 // concept, so this is the shape any external system can actually accept.
 function playerResults() {
   const rec = records();
@@ -859,17 +826,6 @@ if (!isDisplay) {
     if (state.uvsMode) pullUvs(); else msg('#uvs-msg', 'Back to this app making the pairings.', 'ok');
   };
   $('#btn-uvs').onclick = () => pullUvs();
-  // Switching between 1v1 and 2v2 changes what a pulled round means, so the
-  // half-built one from the other mode has to go.
-  const setUvsUse = use => () => {
-    state.uvsUse = use;
-    state.uvsPairings = null;
-    state.rounds = [];
-    save();
-    if (state.uvsMode) pullUvs();
-  };
-  $('#uvs-use-mirror').onchange = setUvsUse('mirror');
-  $('#uvs-use-teams').onchange = setUvsUse('teams');
 
   async function pullUvs() {
     // The id is whatever was used for signup import, so there is nothing to paste.
@@ -877,28 +833,19 @@ if (!isDisplay) {
     if (!id) return msg('#uvs-msg', 'Put the event ID on the Setup tab first — the same one used for Import signups.', 'err');
     msg('#uvs-msg', 'Reading the UVS event page…');
     try {
-      if (state.uvsUse === 'teams' && !state.teams.length) {
-        return msg('#uvs-msg', 'Make the teams first and set each captain, so the pairings have something to match to.', 'err');
-      }
       const feed = await fetchUvs(id);
-      const { count, unmatched } = applyUvs(feed);
+      const { count } = applyUvs(feed);
       state.eventId = id;
-      if (!count) {
-        return msg('#uvs-msg', unmatched.length
-          ? `Round ${feed.round}: no captain name matched a team. Not recognised: ${unmatched.join(', ')}.`
-          : `Connected to "${feed.name}", but UVS has not paired a round yet.`, 'err');
-      }
-      msg('#uvs-msg', unmatched.length
-        ? `Round ${feed.round}: ${count} match${count === 1 ? '' : 'es'} loaded. No team has a captain named: ${unmatched.join(', ')}.`
-        : `Round ${feed.round}: ${count} match${count === 1 ? '' : 'es'} from "${feed.name}".`,
-        unmatched.length ? 'err' : 'ok');
+      msg('#uvs-msg', count
+        ? `Round ${feed.round}: showing ${count} match${count === 1 ? '' : 'es'} from "${feed.name}".`
+        : `Connected to "${feed.name}", but UVS has not paired a round yet.`, count ? 'ok' : 'err');
     } catch (err) { msg('#uvs-msg', err.message, 'err'); }
   }
 
   // Players report on their own phones, so poll to pick that up without anyone
   // pressing anything. Quietly -- a failed poll must not stamp on the message line.
   setInterval(() => {
-    if (state.uvsMode && !cardeActive() && state.eventId) {
+    if (state.uvsMode && state.eventId) {
       fetchUvs(state.eventId).then(applyUvs).catch(() => {});
     }
   }, 30000);
@@ -942,11 +889,18 @@ if (!isDisplay) {
     msg('#team-msg', free.length ? 'One player left over — add them manually or they sit out.' : 'Teams created.', free.length ? 'err' : 'ok');
   };
 
-  $('#team-list').onchange = e => {
-    const id = e.target.dataset.captain;
-    if (!id) return;
-    const t = team(id);
-    if (t) { t.captain = e.target.value; save(); }
+  $('#res-round').onchange = () => renderResults();
+  $('#btn-copy-results').onclick = async () => {
+    const text = resultsText(+$('#res-round').value);
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      msg('#results-msg', 'Copied. Paste it anywhere you like.', 'ok');
+    } catch {
+      // Clipboard needs a secure context and permission; a download always works.
+      download('round-results.txt', text, 'text/plain');
+      msg('#results-msg', 'Clipboard was blocked, so it downloaded as a text file instead.', 'ok');
+    }
   };
 
   $('#team-list').onclick = e => {
@@ -960,7 +914,6 @@ if (!isDisplay) {
   };
 
   $('#btn-pair').onclick = () => {
-    if (cardeActive()) return msg('#round-msg', 'Carde.io is running this event — pair the round there.', 'err');
     if (state.uvsMode) return msg('#round-msg', 'UVS is providing the pairings — press Refresh from UVS instead.', 'err');
     if (state.teams.length < 2) return msg('#round-msg', 'Need at least two teams.', 'err');
     const r = currentRound();
@@ -979,7 +932,7 @@ if (!isDisplay) {
   $('#btn-start').onclick = () => {
     // Mirroring UVS there may be no round yet, but the clock is the whole point,
     // so give it one to live on rather than refusing.
-    if (!currentRound() && uvsMirroring()) state.rounds.push(bareRound(state.uvsRound || 1));
+    if (!currentRound() && state.uvsMode) state.rounds.push(bareRound(state.uvsRound || 1));
     const r = currentRound();
     if (!r) return msg('#round-msg', 'Generate pairings first.', 'err');
     r.endsAt = Date.now() + (r.pausedMs ?? state.minutes * 60000);
@@ -1001,7 +954,6 @@ if (!isDisplay) {
     save();
   };
   $('#btn-next-round').onclick = () => {
-    if (cardeActive()) return msg('#round-msg', 'Carde.io is running this event — advance the round there.', 'err');
     if (state.uvsMode) return msg('#round-msg', 'UVS is providing the pairings — pair the next round there, then press Refresh from UVS.', 'err');
     const r = currentRound();
     if (!r) return msg('#round-msg', 'No round in progress.', 'err');
@@ -1053,181 +1005,6 @@ if (!isDisplay) {
     save();
   });
 
-  // ------------------------------------------------------- Carde.io tab
-
-  const fill = (sel, items, label, value, placeholder) => {
-    $(sel).innerHTML = `<option value="">${placeholder}</option>` +
-      items.map(i => `<option value="${esc(value(i))}">${esc(label(i))}</option>`).join('');
-  };
-
-  const cardeStatus = () => {
-    const c = Carde.context();
-    $('#carde-status').textContent = Carde.isConnected()
-      ? `Connected${c.establishmentName ? ' — ' + c.establishmentName : ''}.`
-      : 'Not connected.';
-    $('#carde-status').className = 'msg ' + (Carde.isConnected() ? 'ok' : '');
-  };
-
-  $('#carde-connect').onclick = async () => {
-    const t = $('#carde-token').value.trim();
-    if (!t) return msg('#carde-status', 'Paste a token first.', 'err');
-    msg('#carde-status', 'Connecting…');
-    try {
-      const stores = await Carde.connect(t);
-      $('#carde-token').value = '';
-      fill('#carde-store', stores, s => s.name, s => s.id, 'Choose a store');
-      msg('#carde-status', `Connected. ${stores.length} store${stores.length === 1 ? '' : 's'} available.`, 'ok');
-    } catch (e) { msg('#carde-status', e.message, 'err'); }
-  };
-
-  $('#carde-disconnect').onclick = () => {
-    Carde.disconnect();
-    ['#carde-store', '#carde-game', '#carde-event', '#carde-round'].forEach(s => ($(s).innerHTML = ''));
-    $('#carde-pairing-list').innerHTML = '';
-    // Hand control back to local pairing, and clear Carde's rows off the TV.
-    state.cardePairings = null;
-    state.cardeRoundLabel = '';
-    save();
-    cardeStatus();
-  };
-
-  $('#carde-store').onchange = async e => {
-    const id = e.target.value;
-    if (!id) return;
-    const name = e.target.selectedOptions[0].textContent;
-    Carde.setContext({ establishmentId: id, establishmentName: name });
-    try {
-      const [games, events] = await Promise.all([Carde.games(id), Carde.events(id)]);
-      fill('#carde-game', games, g => g.name || g.game?.name || g.id, g => g.gameId || g.game?.id || g.id, 'Choose a game');
-      fill('#carde-event', events, v => v.name, v => v.id, 'Choose an event');
-      msg('#carde-msg', `${games.length} games, ${events.length} events.`, 'ok');
-    } catch (err) { msg('#carde-msg', err.message, 'err'); }
-  };
-
-  $('#carde-game').onchange = e => Carde.setContext({ gameId: e.target.value });
-
-  $('#carde-load').onclick = async () => {
-    const id = $('#carde-event').value;
-    if (!id) return msg('#carde-msg', 'Choose an event first.', 'err');
-    msg('#carde-msg', 'Loading…');
-    try {
-      const act = await Carde.activity(id);
-      Carde.setContext({ activityId: id });
-      // Rounds hang off the activity's phases, newest phase last.
-      const rounds = (act?.activityPhases || act?.phases || [])
-        .flatMap(p => (p.tournamentRounds || p.rounds || []));
-      if (!rounds.length) return msg('#carde-msg', 'No rounds on that event yet — pair it in Carde.io first.', 'err');
-      fill('#carde-round', rounds, r => `Round ${r.roundNumber ?? r.number ?? r.id}`, r => r.id, 'Choose a round');
-      msg('#carde-msg', `${rounds.length} round${rounds.length === 1 ? '' : 's'} found.`, 'ok');
-    } catch (err) { msg('#carde-msg', err.message, 'err'); }
-  };
-
-  $('#carde-pairings').onclick = async () => {
-    const roundId = $('#carde-round').value;
-    if (!roundId) return msg('#carde-msg', 'Choose a round first.', 'err');
-    msg('#carde-msg', 'Loading pairings…');
-    try {
-      const pairings = await Carde.pairings(roundId);
-      Carde.setContext({ roundId });
-      renderCardePairings(pairings);
-      msg('#carde-msg', `${pairings.length} pairing${pairings.length === 1 ? '' : 's'}.`, 'ok');
-    } catch (err) { msg('#carde-msg', err.message, 'err'); }
-  };
-
-  // Seat shape varies across Carde responses, so pull the id/name defensively.
-  const seatsOf = p => (p.seats || p.players || p.activityPhaseUsers || p.participants || [])
-    .map(s => ({
-      id: s.activityPhaseUserId || s.id,
-      name: s.displayName || s.bestIdentifier || s.user?.displayName || s.name || 'Unknown',
-    }));
-
-  function renderCardePairings(pairings) {
-    window.__cardePairings = pairings;
-
-    // Mirror a trimmed copy into shared state so the TV window can show them.
-    state.cardePairings = pairings.map(p => {
-      const seats = seatsOf(p);
-      return {
-        table: p.tableNumber ?? p.table ?? null,
-        names: seats.map(s => s.name),
-        reported: !!p.result,
-      };
-    });
-    state.cardeRoundLabel = $('#carde-round').selectedOptions[0]?.textContent || '';
-    save();
-
-    $('#carde-count').textContent = pairings.length ? `(${pairings.length})` : '';
-    $('#carde-pairing-list').innerHTML = pairings.map((p, i) => {
-      const seats = seatsOf(p);
-      const table = p.tableNumber ?? p.table ?? '';
-      const done = p.result ? '<span class="bye">reported</span>' : '';
-      return `<li class="pair-card">
-        <div class="pair-teams">
-          ${table ? `<span class="table-tag">Table ${esc(table)}</span>` : ''}
-          ${seats.map(s => `<b>${esc(s.name)}</b>`).join('<span class="pair-vs">vs</span>')}
-          ${done}
-        </div>
-        <div class="pair-actions">
-          ${seats.map(s => `<button class="ghost sm" data-carde="${i}:win:${esc(s.id)}">${esc(s.name)} wins</button>`).join('')}
-          <button class="ghost sm" data-carde="${i}:draw:">Draw</button>
-          <button class="ghost sm" data-carde="${i}:dl:">Double loss</button>
-        </div>
-      </li>`;
-    }).join('') || '<li class="sub">No pairings loaded.</li>';
-  }
-
-  $('#carde-pairing-list').onclick = async e => {
-    const val = e.target.dataset.carde;
-    if (val === undefined) return;
-    const [i, kind, id] = val.split(':');
-    const p = (window.__cardePairings || [])[+i];
-    if (!p) return;
-    e.target.disabled = true;
-    msg('#carde-msg', 'Reporting…');
-    try {
-      if (kind === 'win') await Carde.reportWinner(p.id, id);
-      else if (kind === 'draw') await Carde.reportDraw(p.id);
-      else await Carde.reportDoubleLoss(p.id);
-      msg('#carde-msg', 'Reported to Carde.io.', 'ok');
-      renderCardePairings(await Carde.pairings(Carde.context().roundId));
-    } catch (err) {
-      msg('#carde-msg', err.message, 'err');
-      e.target.disabled = false;
-    }
-  };
-
-  cardeStatus();
-
-  $('#btn-finish').onclick = () => { if (confirm('Archive this event and start fresh?')) finishEvent(); };
-  $('#btn-reset').onclick = () => {
-    if (!confirm('Erase the current event? Archived events are kept.')) return;
-    Object.assign(state, blank(), { archive: state.archive, ...venue() });
-    save();
-  };
-
-  $('#btn-export').onclick = () => download('riftbound-all-events.json', JSON.stringify(state.archive, null, 2), 'application/json');
-  $('#btn-export-csv').onclick = () => download('riftbound-all-events.csv', toCSV(), 'text/csv');
-  $('#btn-export-players').onclick = () => {
-    if (!state.teams.length) return msg('#stats-msg', 'No teams in the current event.', 'err');
-    download('magma-chamber-player-results.csv', playerResultsCSV(), 'text/csv');
-  };
-  $('#btn-import-file').onclick = () => $('#file-input').click();
-  $('#file-input').onchange = async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-      const data = JSON.parse(await file.text());
-      const incoming = Array.isArray(data) ? data : [data];
-      const seen = new Set(state.archive.map(a => a.date));
-      const fresh = incoming.filter(a => a && a.date && !seen.has(a.date));
-      state.archive.push(...fresh);
-      state.archive.sort((a, b) => b.date - a.date);
-      save();
-      msg('#stats-msg', `Merged ${fresh.length} event${fresh.length === 1 ? '' : 's'}.`, 'ok');
-    } catch { msg('#stats-msg', 'That file could not be read.', 'err'); }
-    e.target.value = '';
-  };
-
   $('#stats-msg').closest('section').onclick = e => {
     const i = e.target.dataset.delArchive;
     if (i !== undefined && confirm('Delete this saved event?')) { state.archive.splice(+i, 1); save(); }
@@ -1237,9 +1014,7 @@ if (!isDisplay) {
 function addTeam(a, b, name = '') {
   const na = player(a)?.name ?? '?', nb = player(b)?.name ?? '?';
   const custom = !!name.trim();
-  // The captain is whoever stays registered on the locator once the team-mate is
-  // dropped at check-in, so their name is what UVS pairings will show.
-  state.teams.push({ id: uid(), name: custom ? name.trim() : `${na} & ${nb}`, players: [a, b], custom, captain: a });
+  state.teams.push({ id: uid(), name: custom ? name.trim() : `${na} & ${nb}`, players: [a, b], custom });
 }
 
 // ---------------------------------------------------------------- display chrome
@@ -1316,24 +1091,24 @@ function autoScroll(ts) {
 
 // The TV leads with pairings so players can find their table, then falls back to
 // the leaderboard for the rest of the round.
-// Rows for the TV pairings view: local pairings normally, Carde.io's when it is
+// Rows for the TV pairings view: the locator's when mirroring, otherwise local
 // the one running the event.
 function displayPairings() {
-  if (uvsMirroring()) return state.uvsPairings || [];
+  if (state.uvsMode) return state.uvsPairings || [];
   const r = currentRound();
   if (r && r.pairings.length) return r.pairings.map(p => ({
     table: p.table,
     names: p.b === null ? [teamName(p.a)] : [teamName(p.a), teamName(p.b)],
     bye: p.b === null,
   }));
-  return (state.cardePairings || []).map(p => ({ table: p.table, names: p.names, bye: false }));
+  return [];
 }
 
 // Everything finished is the cue to move on to standings, whoever supplies the
 // rows: locally that means both scores in, mirroring UVS it means the players
 // have reported.
 function allIn(rows) {
-  if (uvsMirroring()) return rows.length > 0 && rows.every(p => p.done);
+  if (state.uvsMode) return rows.length > 0 && rows.every(p => p.done);
   const r = currentRound();
   return !!r && r.pairings.length > 0 && r.pairings.every(reported);
 }

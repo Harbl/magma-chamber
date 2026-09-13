@@ -21,7 +21,6 @@ const el = new Proxy(function () {}, {
 });
 
 const SRC = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-const CARDE_SRC = fs.readFileSync(path.join(__dirname, '..', 'carde.js'), 'utf8');
 
 // A node that actually remembers what was written to it, so the display path can
 // be inspected. One instance per selector, reused across lookups.
@@ -96,7 +95,6 @@ function makeCtx(search = '') {
   };
   ctx.window = ctx;
   vm.createContext(ctx);
-  vm.runInContext(CARDE_SRC, ctx);   // app.js expects the Carde global
   return { ctx, nodes };
 }
 
@@ -318,104 +316,6 @@ check('CSV header names the external fields',
   /player,team,legend,wins,losses,draws,match_points,game_points/.test(
     run('playerResultsCSV()').split('\n')[0].replace(/"/g, '')));
 
-// --- 7d. Carde.io request contract ----------------------------------------
-// Shapes taken from the Carde.io dashboard bundle. If these drift, reporting
-// silently stops matching what their API expects.
-console.log('\nCarde.io client:');
-{
-  const { ctx: cctx } = makeCtx('');
-  const sent = [];
-  cctx.fetch = (url, opts = {}) => {
-    sent.push({ url, ...opts, parsed: opts.body ? JSON.parse(opts.body) : null });
-    return Promise.resolve({
-      ok: true, status: 200,
-      text: () => Promise.resolve(JSON.stringify({ data: [] })),
-    });
-  };
-  const crun = e => vm.runInContext(e, cctx);
-
-  crun(`Carde.connect('  Bearer abc123  ')`);
-  check('token is trimmed and Bearer prefix stripped', crun('Carde.token') === 'abc123');
-  check('connect verifies against the store list',
-    sent[0].url === 'https://api.carde.io/api/play/establishments/', sent[0].url);
-  check('Authorization header set', sent[0].headers.Authorization === 'Bearer abc123');
-
-  crun(`Carde.setContext({gameId:'game-uuid'}); Carde.reportWinner('pair-1','user-9')`);
-  const win = sent[sent.length - 1];
-  check('report posts to the pairing report route',
-    win.url === 'https://api.carde.io/api/play/tournamentPairings/pair-1/report', win.url);
-  check('report is a POST', win.method === 'POST');
-  check('Game-Id header sent', win.headers['Game-Id'] === 'game-uuid');
-  check('winner recorded as the participant id',
-    JSON.stringify(win.parsed) === JSON.stringify(
-      { isDoubleLoss: false, isIntentionalDraw: false, games: [{ winner: 'user-9', didTie: false }] }),
-    JSON.stringify(win.parsed));
-
-  crun(`Carde.reportDraw('pair-2')`);
-  check('draw sends isIntentionalDraw with no games',
-    JSON.stringify(sent[sent.length - 1].parsed) === JSON.stringify(
-      { isDoubleLoss: false, isIntentionalDraw: true, games: [] }));
-
-  crun(`Carde.reportDoubleLoss('pair-3')`);
-  check('double loss sends isDoubleLoss with no games',
-    JSON.stringify(sent[sent.length - 1].parsed) === JSON.stringify(
-      { isDoubleLoss: true, isIntentionalDraw: false, games: [] }));
-
-  // An expired token is the most likely real-world failure.
-  cctx.fetch = () => Promise.resolve({
-    ok: false, status: 401, text: () => Promise.resolve('{}'),
-  });
-  pending.push(
-    crun(`Carde.pairings('r1')`)
-      .then(() => 'no error thrown', e => e.message)
-      .then(m => check('401 explains that the token expired', /expired/i.test(m), m))
-  );
-}
-
-// --- 7e. Carde.io takes over pairing --------------------------------------
-console.log('\nCarde.io lockout:');
-{
-  const { ctx: lctx, nodes: lnodes } = makeCtx('');
-  lctx.fetch = () => Promise.resolve({
-    ok: true, status: 200, text: () => Promise.resolve(JSON.stringify({ data: [] })),
-  });
-  vm.runInContext(SRC, lctx);
-  const lrun = e => vm.runInContext(e, lctx);
-
-  check('local pairing allowed while disconnected', lrun('cardeActive()') === false);
-
-  // A token alone is not enough -- a round has to be loaded from Carde.
-  lrun(`Carde.connect('tok')`);
-  check('connected but no round yet still allows local pairing', lrun('cardeActive()') === false);
-
-  lrun(`Carde.setContext({roundId:'r-1'})`);
-  check('loading a Carde round takes over', lrun('cardeActive()') === true);
-
-  lrun('renderControl()');
-  check('Generate pairings is disabled', lnodes['#btn-pair'].disabled === true);
-  check('Finish round is disabled', lnodes['#btn-next-round'].disabled === true);
-  check('explanation is shown', lnodes['#carde-lock'].hidden === false);
-
-  // Guard the handler too: a disabled button is not the only way in.
-  lrun(`state = blank();
-    for (let i=1;i<=4;i++){ const a={id:'x'+i,name:'A'+i,legend:''},b={id:'y'+i,name:'B'+i,legend:''};
-      state.players.push(a,b); state.teams.push({id:'t'+i,name:'T'+i,players:[a.id,b.id],custom:false}); }
-    $('#btn-pair').onclick();`);
-  check('handler refuses to pair under Carde', lrun('state.rounds.length') === 0);
-
-  // The TV falls back to Carde's rows when there is no local round.
-  lrun(`state.cardePairings = [{table:3, names:['Ann','Bob'], reported:false}];
-        state.cardeRoundLabel = 'Round 2';`);
-  check('TV shows pairings from Carde', lrun('displayMode()') === 'pairings');
-  check('TV rows come from Carde', lrun(`JSON.stringify(displayPairings())`) ===
-    JSON.stringify([{ table: 3, names: ['Ann', 'Bob'], bye: false }]));
-
-  lrun(`Carde.disconnect(); state.cardePairings = null;`);
-  check('disconnecting hands pairing back', lrun('cardeActive()') === false);
-  lrun('renderControl()');
-  check('Generate pairings re-enabled', lnodes['#btn-pair'].disabled === false);
-}
-
 // --- 8. shop branding is per-install, not baked into the build -------------
 console.log('\nshop branding:');
 {
@@ -544,79 +444,67 @@ console.log('\nUVS mirror:');
   check('nothing is ever pushed back to UVS', !/player\/events[^`]*`,\s*\{\s*method/.test(src));
 }
 
-// --- 9a. 2v2 via UVS captains ---------------------------------------------
-// At check-in the shop drops the team-mate from the locator event, so UVS pairs
-// captains. The captain's name is the only handle back to a team.
-console.log('\nUVS team mode (2v2 captains):');
+// --- 9a. round results for manual reporting -------------------------------
+// Carde.io has no reachable API, so reporting is typed by hand into a
+// "multiplayer unpaired" event. This list is what gets typed from.
+console.log('\nround results list:');
 {
-  const { ctx: tctx, nodes: tnodes } = makeCtx('?display=1');
-  vm.runInContext(SRC, tctx);
-  const trun = expr => vm.runInContext(expr, tctx);
+  const { ctx: rctx, nodes: rnodes } = makeCtx('');
+  vm.runInContext(SRC, rctx);
+  const rr = expr => vm.runInContext(expr, rctx);
 
-  trun(`state = blank(); state.uvsMode = true; state.uvsUse = 'teams';
+  rr(`state = blank();
     state.players = [
-      {id:'p1',name:'Ann',legend:''},  {id:'p2',name:'Al',legend:''},
-      {id:'p3',name:'Bo',legend:''},   {id:'p4',name:'Bea',legend:''},
-      {id:'p5',name:'Cy',legend:''},   {id:'p6',name:'Cass',legend:''}];
+      {id:'p1',name:'Zoe',legend:''},   {id:'p2',name:'adam',legend:''},
+      {id:'p3',name:'Bo',legend:''},    {id:'p4',name:'Yves',legend:''},
+      {id:'p5',name:'Cy',legend:''},    {id:'p6',name:'Mia',legend:''}];
     state.teams = [
-      {id:'t1',name:'Rift Raiders',players:['p1','p2'],custom:true,captain:'p1'},
-      {id:'t2',name:'Bo and Friends',players:['p3','p4'],custom:true,captain:'p3'},
-      {id:'t3',name:'Cy Squad',players:['p5','p6'],custom:true,captain:'p5'}];`);
+      {id:'t1',name:'Alpha',players:['p1','p2'],custom:true},
+      {id:'t2',name:'Beta', players:['p3','p4'],custom:true},
+      {id:'t3',name:'Gamma',players:['p5','p6'],custom:true}];
+    state.rounds = [{ n:1, endsAt:0, pausedMs:0, running:false, pairings:[
+      { a:'t1', b:'t2', winner:'a', pa:11, pb:8, table:1 },
+      { a:'t3', b:null, winner:null, pa:8, pb:null, table:null } ]}];`);
 
-  check('captainOf falls back for teams made before captains existed',
-    trun(`captainOf({players:['p3','p4']})`) === 'p3');
-  check('a captain name finds its team', trun(`teamByCaptain('Ann').id`) === 't1');
-  check('captain matching tolerates case and padding', trun(`teamByCaptain('  ann ').id`) === 't1');
-  check('a NON-captain team-mate must not match', trun(`teamByCaptain('Al')`) === null);
+  check('every player in the round is listed', rr('roundResults(1).length') === 6);
+  check('sorted alphabetically, case-insensitively',
+    rr(`roundResults(1).map(r => r.name).join(',')`) === 'adam,Bo,Cy,Mia,Yves,Zoe');
+  check("both team-mates inherit the team's win",
+    rr(`roundResults(1).filter(r => r.team === 'Alpha').every(r => r.result === 'Win')`) === true);
+  check('the losing team-mates both get a loss',
+    rr(`roundResults(1).filter(r => r.team === 'Beta').every(r => r.result === 'Loss')`) === true);
+  check('a bye counts as a win for both players',
+    rr(`roundResults(1).filter(r => r.team === 'Gamma').every(r => r.result === 'Win' && r.bye)`) === true);
 
-  const FEED = round => ({
-    name: '2v2 Night', round,
-    pairings: [
-      { table: 1, bye: false, names: ['Ann', 'Bo'], winner: 'Ann', done: true },
-      { table: null, bye: true, names: ['Cy'], winner: null, done: true },
-    ],
-    standings: [],
-  });
-  trun(`applyUvs(${JSON.stringify(FEED(1))});`);
+  // An unreported match must say so rather than quietly reading as a loss.
+  rr(`state.rounds[0].pairings[0].winner = null;`);
+  check('an unplayed match is flagged, not scored',
+    rr(`roundResults(1).filter(r => r.result === null).length`) === 4);
+  check('the copy text marks it too', rr(`resultsText(1)`).includes('not reported'));
 
-  check('captain pairing becomes a real team round', trun('currentRound().pairings.length') === 2);
-  check('it pairs the teams, not the captains',
-    trun(`currentRound().pairings[0].a + '/' + currentRound().pairings[0].b`) === 't1/t2');
-  check('the winning captain marks the winning team', trun(`currentRound().pairings[0].winner`) === 'a');
-  check('points stay empty for the organiser', trun('currentRound().pairings[0].pa') === null);
-  check('the table number carries over', trun('currentRound().pairings[0].table') === 1);
-  check("a captain's bye becomes the team's bye", trun(`currentRound().pairings[1].a`) === 't3');
-  check('the bye is awarded its points', trun('currentRound().pairings[1].pa') === 8);
-  check('team mode does not mirror raw rows', trun('state.uvsPairings') === null);
+  rr(`state.rounds[0].pairings[0].winner = 'b';`);
+  check('the text is one player per line', rr(`resultsText(1).split('\\n').length`) === 6);
+  check('the text reads name then result', rr(`resultsText(1).split('\\n')[0]`) === 'adam — Loss');
 
-  // The TV must show team names, never the captain's name.
-  trun(`state.pairingMinutes = 99; renderDisplay();`);
-  check('the TV shows the team name', tnodes['#dsp-pairings'].innerHTML.includes('Rift Raiders'));
-  check('the TV does not show the captain name', !tnodes['#dsp-pairings'].innerHTML.includes('>Ann<'));
+  rr('renderResults()');
+  check('the list renders', rnodes['#results-list'].innerHTML.includes('adam'));
+  check('results are colour-coded for scanning', rnodes['#results-list'].innerHTML.includes('res-row loss'));
+  check('the round picker is populated', rnodes['#res-round'].innerHTML.includes('Round 1'));
 
-  // UVS has no points, so a refresh must not wipe what was typed.
-  trun(`currentRound().pairings[0].pa = 11; currentRound().pairings[0].pb = 8;
-        applyUvs(${JSON.stringify(FEED(1))});`);
-  check('refreshing keeps one round', trun('state.rounds.length') === 1);
-  check('typed points survive a refresh', trun('currentRound().pairings[0].pa') === 11);
-  check('the match then counts as reported', trun(`reported(currentRound().pairings[0])`) === true);
-  check('the leaderboard picks the points up', trun(`standings()[0].gp`) === 11);
+  rr(`state = blank(); renderResults();`);
+  check('an empty event says so', rnodes['#results-list'].innerHTML.includes('Nothing to report'));
+  check('copy is disabled with nothing to copy', rnodes['#btn-copy-results'].disabled === true);
 
-  // A new round appends rather than replacing.
-  trun(`applyUvs(${JSON.stringify(FEED(2))});`);
-  check('a new round is appended', trun('state.rounds.length') === 2);
-
-  // Unknown captains are reported back, and unmappable rows dropped.
-  trun(`state.rounds = []; var r = applyUvs({ round: 1, standings: [], pairings: [
-    { table: 1, bye: false, names: ['Nobody','Ann'], winner: null, done: false },
-    { table: 2, bye: false, names: ['Ann','Al'],     winner: null, done: false } ] });`);
-  check('an unknown captain is named back', trun(`r.unmatched.join(',')`) === 'Nobody,Al');
-  check('rows that cannot be mapped are dropped', trun('currentRound().pairings.length') === 0);
-
-  // Carde.io is out of the way for now.
+  // Carde.io is gone now, not merely hidden.
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  check('the Carde.io tab is hidden', /data-tab="carde"\s+hidden/.test(html));
-  check('but carde.js is still shipped', html.includes('carde.js'));
+  const js2 = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  check('no Carde.io left in the markup', !/carde/i.test(html));
+  // The word may legitimately survive in a comment explaining why it is gone;
+  // what must not survive is any call, selector or state field.
+  check('no Carde.io code left in the app',
+    !/\bCarde\.(?!io)|#carde-|cardePairings|cardeRoundLabel|cardeActive/.test(js2));
+  check('carde.js is gone from disk', !fs.existsSync(path.join(__dirname, '..', 'carde.js')));
+  check('the Results tab exists', html.includes('data-panel="results"'));
 }
 
 // --- 9b. overtime clock ----------------------------------------------------

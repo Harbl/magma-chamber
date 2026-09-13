@@ -51,13 +51,9 @@
     <button data-tab="setup" class="on">Setup</button>
     <button data-tab="teams">Teams</button>
     <button data-tab="round">Round</button>
+    <button data-tab="results">Results</button>
     <button data-tab="standings">Standings</button>
     <button data-tab="stats">Stats</button>
-    <!-- Hidden 2026-09-13. Riftbound organised play does not appear to run through
-         Carde.io at all: Marymoor Games has no Carde record yet runs locator events
-         weekly, and Zulu's record has no events under it. The locator is the source
-         of truth. Kept wired up, not deleted, pending what the shop says. -->
-    <button data-tab="carde" hidden>Carde.io</button>
     <button id="open-display" class="ghost">Open TV Display</button>
   </nav>
 
@@ -151,25 +147,14 @@
   <!-- ROUND -->
   <section data-panel="round" hidden>
     <h2>Round <span id="round-num">&mdash;</span></h2>
-    <p id="carde-lock" class="lock" hidden>
-      <b>Carde.io is running this event.</b>
-      Pairings and results are handled on the <b>Carde.io</b> tab so they match what
-      Carde.io has. Local pairing is switched off to stop the two disagreeing.
-      The round timer below still works.
-    </p>
     <p id="uvs-lock" class="lock" hidden>
       <b>The UVS event page is running the pairings.</b>
-      This app is not making its own. In <b>1v1</b> it just shows them. In
-      <b>2v2</b> it matches each pairing to your teams using the captain, and you
-      enter the points. Press <b>Refresh from UVS</b> after each new round is
-      paired there.
+      This app is showing them rather than making its own, and players report
+      their own results there. Press <b>Refresh from UVS</b> after each new round
+      is paired. The round clock below is still yours.
     </p>
     <label class="chk"><input type="checkbox" id="uvs-on">
-      Use the UVS event page for this night</label>
-    <div class="pick" id="uvs-use-pick">
-      <label><input type="radio" name="uvsuse" id="uvs-use-mirror"> 1v1 &mdash; just show it</label>
-      <label><input type="radio" name="uvsuse" id="uvs-use-teams"> 2v2 &mdash; match to teams by captain</label>
-    </div>
+      Show the UVS event instead (1v1 nights)</label>
     <div class="row">
       <button id="btn-uvs" class="ghost">Refresh from UVS</button>
     </div>
@@ -186,6 +171,20 @@
     </div>
     <p id="round-msg" class="msg"></p>
     <ul id="pairing-list" class="list"></ul>
+  </section>
+
+  <!-- RESULTS -->
+  <section data-panel="results" hidden>
+    <h2>Round results for reporting</h2>
+    <p class="hint">Every player in the round, A&ndash;Z, with their own win or loss.
+      Both team-mates get their team's result. Made for typing straight into a
+      <b>multiplayer unpaired</b> event without hunting for names.</p>
+    <div class="row">
+      <select id="res-round"></select>
+      <button id="btn-copy-results" class="ghost">Copy as text</button>
+    </div>
+    <p id="results-msg" class="msg"></p>
+    <ol id="results-list" class="list results"></ol>
   </section>
 
   <!-- STANDINGS -->
@@ -215,43 +214,7 @@
     <h2>Event history</h2>
     <ul id="archive-list" class="list"></ul>
   </section>
-
-  <!-- CARDE.IO -->
-  <section data-panel="carde" hidden>
-    <h2>Connection</h2>
-    <p class="hint">Carde.io has no public login for outside tools yet, so paste an
-      access token from the Carde.io dashboard. Tokens expire, so expect to repaste
-      each event night. See the README for how to copy one.</p>
-    <div class="row">
-      <input id="carde-token" type="password" placeholder="Paste Carde.io token" autocomplete="off">
-      <button id="carde-connect">Connect</button>
-      <button id="carde-disconnect" class="ghost">Disconnect</button>
-    </div>
-    <p id="carde-status" class="msg"></p>
-
-    <h2>Event</h2>
-    <div class="row">
-      <select id="carde-store"></select>
-      <select id="carde-game"></select>
-    </div>
-    <div class="row">
-      <select id="carde-event"></select>
-      <button id="carde-load" class="ghost">Load rounds</button>
-    </div>
-    <div class="row">
-      <select id="carde-round"></select>
-      <button id="carde-pairings">Show pairings</button>
-    </div>
-    <p id="carde-msg" class="msg"></p>
-
-    <h2>Carde.io pairings <span id="carde-count" class="count"></span></h2>
-    <p class="hint">Reporting sends an individual win to Carde.io for the player you
-      pick. Carde.io has no team concept yet, so a 2v2 result goes in per player.</p>
-    <ul id="carde-pairing-list" class="list"></ul>
-  </section>
 </div>
-
-<script src="carde.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
