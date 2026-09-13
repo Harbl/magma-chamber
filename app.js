@@ -41,6 +41,7 @@ let state = load();
 function blank() {
   return {
     mode: null,             // '1v1' | '2v2', chosen on the splash screen
+    manual: false,          // unofficial night: no locator event, this app pairs
     name: '', minutes: 50, byePoints: 8, tables: 8, pairingMinutes: 8, overtime: 0,
     shopName: '', brandMode: 'text',   // venue half of the TV lockup; logo itself is in LOGO_KEY
     eventId: '', uvsMode: false,       // locator event, and whether it owns the pairings
@@ -138,12 +139,23 @@ function setImg(sel, url) {
 // ---------------------------------------------------------------- lookups
 
 // The mode decides which tabs and settings exist at all. Anything carrying
-// data-only="1v1"/"2v2" is shown only in that mode, so the markup declares its
-// own relevance rather than this having to know about each control.
+// data-only is shown only when every token it lists is active, so the markup
+// declares its own relevance rather than this having to know about each control.
+// Tokens: the mode itself, manual|official, and mirror|local.
 const MODE_TABS = {
-  '1v1': ['setup', 'round', 'stats'],
-  '2v2': ['setup', 'teams', 'round', 'results', 'standings', 'stats'],
+  '1v1': ['setup', 'round', 'stats', 'settings'],                                      // mirroring the locator
+  '1v1-manual': ['setup', 'round', 'results', 'standings', 'stats', 'settings'],       // we run it: solo players
+  '2v2': ['setup', 'teams', 'round', 'results', 'standings', 'stats', 'settings'],
 };
+
+// Manual 1v1 reuses the whole team machinery with one player per team, which is
+// why it gets Results and Standings while the mirrored version does not.
+const soloMode = () => state.mode === '1v1' && !!state.manual;
+const tabKey = () => (soloMode() ? '1v1-manual' : state.mode);
+
+function viewTokens() {
+  return [state.mode, state.manual ? 'manual' : 'official', state.uvsMode ? 'mirror' : 'local'];
+}
 
 const team = id => state.teams.find(t => t.id === id);
 const player = id => state.players.find(p => p.id === id);
@@ -409,7 +421,7 @@ function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;'
 
 function renderControl() {
   applyMode();
-  if (!state.mode) return;   // splash is up; nothing behind it needs filling in
+  if (!state.mode && !settingsOnly) return;   // splash is up; nothing behind it needs filling in
 
   $('#ev-name').value = state.name;
   $('#ev-minutes').value = state.minutes;
@@ -427,6 +439,13 @@ function renderControl() {
   $('#logo-preview').hidden = !logo;
   $('#player-count').textContent = state.players.length ? `(${state.players.length})` : '';
   $('#archive-count').textContent = state.archive.length ? `(${state.archive.length})` : '';
+
+  $('#ev-manual').checked = !!state.manual;
+  $('#manual-hint').textContent = state.manual
+    ? 'This app makes the pairings, assigns tables and keeps the scores. Nothing is read from the Riftbound event page.'
+    : state.mode === '1v1'
+      ? 'The Riftbound event page owns the pairings and the players report there. This app mirrors it and runs the clock.'
+      : 'Players are imported from the Riftbound event page, then this app pairs the teams and keeps the scores.';
 
   // players
   $('#player-list').innerHTML = state.players.map(p => `
@@ -447,7 +466,7 @@ function renderControl() {
 
   $('#team-list').innerHTML = state.teams.map(t => `
     <li>
-      </label>
+      <span class="grow"><b>${esc(t.name)}</b><br><span class="sub">${t.players.map(id => esc(player(id)?.name ?? '?')).join(' &amp; ')}</span></span>
       <button class="ghost sm" data-rename="${t.id}">Rename</button>
       <button class="ghost sm" data-del-team="${t.id}">Disband</button>
     </li>`).join('') || '<li class="sub">No teams yet.</li>';
@@ -540,6 +559,21 @@ function renderResults() {
 }
 
 function renderStats() {
+  const hist = playerHistory();
+  $('#hist-count').textContent = hist.length ? `(${hist.length})` : '';
+  $('#btn-export-history').disabled = !hist.length;
+  $('#hist-list').innerHTML = hist.length ? hist.map(e => {
+    const tops = topLegends(e);
+    return `<li>
+      <span class="grow"><b>${esc(e.name)}</b><br>
+        <span class="sub">${e.w}-${e.l}${e.d ? `-${e.d}` : ''} &middot; ${(e.winPct * 100).toFixed(0)}% &middot;
+        ${e.events} night${e.events === 1 ? '' : 's'}${e.wins ? ` &middot; ${e.wins} won` : ''}</span></span>
+      <span class="sub legends">${tops.length
+        ? tops.map(n => `<i class="legend-chip" style="background:${legendColor(n)}"></i>${esc(shortLegend(n))}`).join(' ')
+        : 'no legend recorded'}</span>
+    </li>`;
+  }).join('') : '<li class="sub">Nothing yet — finish and archive a night and everyone who played shows up here.</li>';
+
   const counts = {};
   for (const ev of state.archive)
     for (const p of ev.players) if (p.legend) counts[p.legend] = (counts[p.legend] || 0) + 1;
@@ -688,7 +722,7 @@ function applyUvs(feed) {
 // ---------------------------------------------------------------- archive
 
 function finishEvent() {
-  if (!state.teams.length) return msg('#import-msg', 'Nothing to archive yet.', 'err');
+  if (!state.teams.length) return msg('#danger-msg', 'Nothing to archive yet.', 'err');
   const final = standings();
   state.archive.unshift({
     date: Date.now(),
@@ -708,11 +742,16 @@ function finishEvent() {
       teamB: p.b === null ? null : teamName(p.b), pointsB: p.pb,
     }))),
   });
-  Object.assign(state, blank(), { archive: state.archive, minutes: state.minutes, ...venue() });
+  // The mode and how the night runs belong to the room, not the event, so they
+  // survive archiving -- otherwise finishing a night drops you back to the splash.
+  Object.assign(state, blank(), {
+    archive: state.archive, minutes: state.minutes,
+    mode: state.mode, manual: state.manual, uvsMode: state.uvsMode, ...venue(),
+  });
   save();
   download(`riftbound-${new Date().toISOString().slice(0, 10)}.json`,
     JSON.stringify(state.archive[0], null, 2), 'application/json');
-  msg('#import-msg', 'Event archived and a backup file downloaded.', 'ok');
+  msg('#danger-msg', 'Event archived and a backup file downloaded.', 'ok');
 }
 
 function download(filename, text, type) {
@@ -751,6 +790,48 @@ function playerResultsCSV() {
     .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
 }
 
+// Lifetime record per player, accumulated over archived events. Archived
+// standings are per team, and both team-mates take their team's result -- the
+// same rule the reporting list uses, so the two never disagree.
+//
+// Names are the only key we have across events (a locator import and a hand-typed
+// entry share nothing else), so they are matched case-insensitively and trimmed.
+function playerHistory() {
+  const by = new Map();
+  for (const ev of state.archive) {
+    for (const s of ev.standings || []) {
+      (s.players || []).forEach((raw, i) => {
+        const name = String(raw || '').trim();
+        if (!name || name === '?') return;
+        const k = name.toLowerCase();
+        const e = by.get(k) || { name, events: 0, w: 0, l: 0, d: 0, gp: 0, wins: 0, legends: {}, last: 0 };
+        e.events++;
+        e.w += s.w || 0; e.l += s.l || 0; e.d += s.d || 0; e.gp += s.gp || 0;
+        if (s.place === 1) e.wins++;                       // nights finished in first
+        const legend = (s.legends || [])[i];
+        if (legend) e.legends[legend] = (e.legends[legend] || 0) + 1;
+        e.last = Math.max(e.last, ev.date || 0);
+        by.set(k, e);
+      });
+    }
+  }
+  return [...by.values()].map(e => {
+    const played = e.w + e.l + e.d;
+    return { ...e, played, winPct: played ? e.w / played : 0 };
+  }).sort((a, b) => b.w - a.w || b.winPct - a.winPct || a.name.localeCompare(b.name));
+}
+
+// Most-played first, so the chip reads as "what this player brings".
+const topLegends = e => Object.entries(e.legends).sort((a, b) => b[1] - a[1]).map(([n]) => n);
+
+function playerHistoryCSV() {
+  const head = ['player', 'events', 'matches', 'wins', 'losses', 'draws', 'win_pct', 'game_points', 'event_wins', 'legends'];
+  const rows = playerHistory().map(e =>
+    [e.name, e.events, e.played, e.w, e.l, e.d, (e.winPct * 100).toFixed(1), e.gp, e.wins, topLegends(e).join(' / ')]);
+  return [head, ...rows]
+    .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+}
+
 function toCSV() {
   const rows = [['event', 'date', 'place', 'team', 'players', 'legends',
     'game_points', 'wins', 'losses', 'draws', 'match_points']];
@@ -767,12 +848,28 @@ function toCSV() {
 if (!isDisplay) {
   $$('.tabs button[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
-  $$('#splash .splash-card').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+  $$('#splash .splash-card').forEach(b =>
+    b.onclick = () => setMode(b.dataset.mode, $('#splash-manual').checked));
+
+  // Shop settings from the splash: no mode, no event, just the venue's own setup.
+  $('#splash-settings').onclick = () => { settingsOnly = true; showTab('settings'); render(); };
+  $('#btn-back-splash').onclick = () => { settingsOnly = false; render(); };
 
   $('#btn-change-mode').onclick = () => {
     const to = state.mode === '1v1' ? '2v2' : '1v1';
     if (!confirm(`Switch to ${to}? The round in progress will be cleared.`)) return;
     setMode(to);
+  };
+
+  // Flipping this mid-event changes who owns the pairings, so it clears the round
+  // exactly like switching mode does -- setMode() already handles that.
+  $('#ev-manual').onchange = e => {
+    const on = e.target.checked;
+    if (state.rounds.length && !confirm('Change how this night runs? The round in progress will be cleared.')) {
+      e.target.checked = !on;
+      return;
+    }
+    setMode(state.mode, on);
   };
 
   $('#open-display').onclick = () => window.open('?display=1', 'rb-display', 'width=1280,height=720');
@@ -923,7 +1020,9 @@ if (!isDisplay) {
 
   $('#btn-pair').onclick = () => {
     if (state.uvsMode) return msg('#round-msg', 'UVS is providing the pairings — press Refresh from UVS instead.', 'err');
-    if (state.teams.length < 2) return msg('#round-msg', 'Need at least two teams.', 'err');
+    if (soloMode()) syncSoloTeams();
+    if (state.teams.length < 2)
+      return msg('#round-msg', soloMode() ? 'Need at least two players.' : 'Need at least two teams.', 'err');
     const r = currentRound();
     if (r && r.pairings.some(p => !reported(p))) return msg('#round-msg', 'Enter both scores for every match first.', 'err');
     const pairings = makePairings();
@@ -1013,6 +1112,40 @@ if (!isDisplay) {
     save();
   });
 
+  $('#btn-finish').onclick = () => { if (confirm('Archive this event and start fresh?')) finishEvent(); };
+  $('#btn-reset').onclick = () => {
+    if (!confirm('Erase the current event? Archived events are kept.')) return;
+    Object.assign(state, blank(), { archive: state.archive, mode: state.mode, manual: state.manual, uvsMode: state.uvsMode, ...venue() });
+    save();
+  };
+
+  $('#btn-export').onclick = () => download('riftbound-all-events.json', JSON.stringify(state.archive, null, 2), 'application/json');
+  $('#btn-export-csv').onclick = () => download('riftbound-all-events.csv', toCSV(), 'text/csv');
+  $('#btn-export-players').onclick = () => {
+    if (!state.teams.length) return msg('#settings-msg', 'No teams in the current event.', 'err');
+    download('magma-chamber-player-results.csv', playerResultsCSV(), 'text/csv');
+  };
+  $('#btn-export-history').onclick = () => {
+    if (!state.archive.length) return msg('#stats-msg', 'No archived events yet.', 'err');
+    download('magma-chamber-player-records.csv', playerHistoryCSV(), 'text/csv');
+  };
+  $('#btn-import-file').onclick = () => $('#file-input').click();
+  $('#file-input').onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const incoming = Array.isArray(data) ? data : [data];
+      const seen = new Set(state.archive.map(a => a.date));
+      const fresh = incoming.filter(a => a && a.date && !seen.has(a.date));
+      state.archive.push(...fresh);
+      state.archive.sort((a, b) => b.date - a.date);
+      save();
+      msg('#settings-msg', `Merged ${fresh.length} event${fresh.length === 1 ? '' : 's'}.`, 'ok');
+    } catch { msg('#settings-msg', 'That file could not be read.', 'err'); }
+    e.target.value = '';
+  };
+
   $('#stats-msg').closest('section').onclick = e => {
     const i = e.target.dataset.delArchive;
     if (i !== undefined && confirm('Delete this saved event?')) { state.archive.splice(+i, 1); save(); }
@@ -1024,12 +1157,18 @@ function showTab(tab) {
   $$('section[data-panel]').forEach(s => { s.hidden = s.dataset.panel !== tab; });
 }
 
-// 1v1 *is* the UVS mirror and 2v2 is always local, so the mode sets uvsMode
-// rather than the organiser having to keep a separate switch in agreement.
-function setMode(mode) {
-  const changed = state.mode !== mode;
+// Shop settings opened from the splash, before any mode has been picked. Not
+// saved: it is a detour, not a state the app should come back up in.
+let settingsOnly = false;
+
+// An unofficial night has no locator event to mirror, so only an official 1v1 is
+// the UVS mirror. Everything else is run here, which is what uvsMode means.
+function setMode(mode, manual = state.manual) {
+  const changed = state.mode !== mode || !!state.manual !== !!manual;
   state.mode = mode;
-  state.uvsMode = mode === '1v1';
+  state.manual = !!manual;
+  state.uvsMode = mode === '1v1' && !state.manual;
+  settingsOnly = false;
   if (changed) {
     state.rounds = [];
     state.uvsPairings = null;
@@ -1043,22 +1182,40 @@ function setMode(mode) {
 
 function applyMode() {
   const m = state.mode;
-  $('#splash').hidden = !!m;
-  $('#control').hidden = !m;
-  if (!m) return;
+  $('#splash').hidden = !!m || settingsOnly;
+  $('#control').hidden = !m && !settingsOnly;
+  $('#btn-back-splash').hidden = !!m || !settingsOnly;
+  $('#splash-manual').checked = !!state.manual;
+  if (!m && !settingsOnly) return;
 
-  const allowed = MODE_TABS[m] || MODE_TABS['2v2'];
+  // With no mode yet, the only thing there is to show is the shop settings.
+  const allowed = !m ? ['settings'] : (MODE_TABS[tabKey()] || MODE_TABS['2v2']);
   let openTab = null;
   $$('.tabs button[data-tab]').forEach(b => {
     b.hidden = !allowed.includes(b.dataset.tab);
     if (b.classList.contains('on') && !b.hidden) openTab = b.dataset.tab;
   });
   // Switching modes can hide the tab you were on; don't leave a blank panel.
-  if (!openTab) showTab('setup');
+  if (!openTab) showTab(allowed[0]);
 
-  $$('[data-only]').forEach(el => { el.hidden = el.dataset.only !== m; });
-  $('#mode-badge').textContent = m;
-  $('#mode-name').textContent = m;
+  const tokens = viewTokens();
+  $$('[data-only]').forEach(el => {
+    el.hidden = !el.dataset.only.split(/\s+/).every(t => tokens.includes(t));
+  });
+  $('#mode-badge').textContent = m || 'shop';
+  $('#mode-name').textContent = m ? (state.manual ? `manual ${m}` : m) : '—';
+}
+
+// Manual 1v1 is scored with the same team machinery as 2v2, with each player in
+// a team of one. Doing it here rather than forking the pairing, scoring and
+// reporting code is the whole reason 1v1 gets those tabs for free.
+function syncSoloTeams() {
+  state.teams = state.teams.filter(t => t.players.length === 1 && player(t.players[0]));
+  for (const p of state.players) {
+    const t = state.teams.find(x => x.players[0] === p.id);
+    if (t) t.name = p.name;
+    else state.teams.push({ id: uid(), name: p.name, players: [p.id], custom: false });
+  }
 }
 
 function addTeam(a, b, name = '') {

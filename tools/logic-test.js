@@ -319,6 +319,42 @@ check('CSV header names the external fields',
   /player,team,legend,wins,losses,draws,match_points,game_points/.test(
     run('playerResultsCSV()').split('\n')[0].replace(/"/g, '')));
 
+// --- 7b. lifetime player records across archived events --------------------
+console.log('\nlifetime player records:');
+{
+  const { ctx: hctx } = makeCtx('');
+  vm.runInContext(SRC, hctx);
+  const hrun = expr => vm.runInContext(expr, hctx);
+  // Two nights. Ann plays both, under two different names' worth of casing, and
+  // brings a different legend the second time. Cy only shows up once.
+  hrun(`state = blank(); state.archive = [
+    { date: 2, name: 'Week 2', standings: [
+        { place: 1, name: 'T1', players: ['ann', 'Bo'], legends: ['Viktor - Machine Herald', null], w: 3, l: 0, d: 0, gp: 30 },
+        { place: 2, name: 'T2', players: ['Cy', 'Dee'], legends: [null, null], w: 1, l: 2, d: 0, gp: 12 } ] },
+    { date: 1, name: 'Week 1', standings: [
+        { place: 2, name: 'T3', players: ['Ann ', 'Dee'], legends: ['Jinx - Loose Cannon', null], w: 1, l: 1, d: 1, gp: 14 } ] },
+  ];`);
+  const hist = hrun('playerHistory()');
+  const ann = hist.find(e => e.name.trim() === 'Ann' || e.name === 'ann');
+
+  check('one row per player across every archived night', hist.length === 4, `got ${hist.length}`);
+  check('the same player under different casing is one row', ann.events === 2);
+  check('records add up across nights', ann.w === 4 && ann.l === 1 && ann.d === 1);
+  check('game points add up too', ann.gp === 44);
+  check('win rate is over matches, not nights', Math.round(ann.winPct * 100) === 67);
+  check('every legend they have brought is kept',
+    hrun(`Object.keys(playerHistory().find(e => e.name.toLowerCase().trim() === 'ann').legends).length`) === 2);
+  check('nights finished first are counted', ann.wins === 1);
+  check('a team-mate inherits the same record',
+    hist.find(e => e.name === 'Bo').w === 3 && hist.find(e => e.name === 'Bo').events === 1);
+  check('best record sorts first', hist[0].name.toLowerCase().trim() === 'ann');
+  check('a placeholder name is not a player', !hist.some(e => e.name === '?'));
+  check('CSV header names the lifetime fields',
+    /player,events,matches,wins,losses,draws,win_pct,game_points,event_wins,legends/.test(
+      hrun('playerHistoryCSV()').split('\n')[0].replace(/"/g, '')));
+  check('no archive means no records', hrun('state.archive = []; playerHistory().length') === 0);
+}
+
 // --- 8. shop branding is per-install, not baked into the build -------------
 console.log('\nshop branding:');
 {
@@ -536,8 +572,10 @@ console.log('\nsplash and mode gating:');
     n.dataset.only = mode;
     return n;
   };
-  const tabs = ['setup', 'teams', 'round', 'results', 'standings', 'stats'].map(tab);
-  const onlies = [only('2v2'), only('2v2'), only('1v1')];
+  const tabs = ['setup', 'teams', 'round', 'results', 'standings', 'stats', 'settings'].map(tab);
+  // [0] 2v2-only, [1] local-only (both 2v2 and manual 1v1), [2] the UVS mirror,
+  // [3] anything that reads the official event page.
+  const onlies = [only('2v2'), only('local'), only('mirror'), only('official')];
   mlists['.tabs button[data-tab]'] = tabs;
   mlists['[data-only]'] = onlies;
   mlists['section[data-panel]'] = [];
@@ -555,20 +593,70 @@ console.log('\nsplash and mode gating:');
   mrun(`setMode('2v2');`);
   check('picking 2v2 dismisses the splash', mnodes['#splash'].hidden === true);
   check('the control panel appears', mnodes['#control'].hidden === false);
-  check('2v2 shows every tab', shown() === 'setup,teams,round,results,standings,stats');
+  check('2v2 shows every tab', shown() === 'setup,teams,round,results,standings,stats,settings');
   check('2v2 does not mirror UVS', mrun('state.uvsMode') === false);
   check('2v2-only settings are shown', onlies[0].hidden === false);
-  check('1v1-only settings are hidden', onlies[2].hidden === true);
+  check('mirror-only settings are hidden', onlies[2].hidden === true);
   check('the badge names the mode', mnodes['#mode-badge'].textContent === '2v2');
 
   mrun(`setMode('1v1');`);
-  check('1v1 drops Teams, Results and Standings', shown() === 'setup,round,stats');
+  check('1v1 drops Teams, Results and Standings', shown() === 'setup,round,stats,settings');
   check('1v1 turns the UVS mirror on', mrun('state.uvsMode') === true);
   check('2v2-only settings are hidden', onlies[0].hidden === true);
-  check('1v1-only settings are shown', onlies[2].hidden === false);
+  check('mirror-only settings are shown', onlies[2].hidden === false);
+  check('scoring settings are hidden while mirroring', onlies[1].hidden === true);
+
+  // --- manual override: an unofficial night this app runs itself
+  mrun(`setMode('1v1', true);`);
+  check('manual 1v1 stops mirroring UVS', mrun('state.uvsMode') === false);
+  check('manual 1v1 gets Results and Standings back',
+    shown() === 'setup,round,results,standings,stats,settings');
+  check('manual 1v1 still has no Teams tab', tabs.find(t => t.dataset.tab === 'teams').hidden === true);
+  check('manual 1v1 shows the scoring settings', onlies[1].hidden === false);
+  check('manual 1v1 hides the UVS refresh', onlies[2].hidden === true);
+  check('manual hides anything reading the official event', onlies[3].hidden === true);
+  check('the mode line says it is manual', mnodes['#mode-name'].textContent === 'manual 1v1');
+
+  mrun(`setMode('2v2', true);`);
+  check('manual 2v2 keeps its own tabs', shown() === 'setup,teams,round,results,standings,stats,settings');
+  check('manual 2v2 still scores locally', onlies[1].hidden === false);
+  check('manual 2v2 hides the signup import', onlies[3].hidden === true);
+
+  mrun(`setMode('2v2', false);`);
+  check('going back to official restores the import', onlies[3].hidden === false);
+  check('manual survives a reload', mrun(`setMode('1v1', true); load().manual`) === true);
+
+  // Each player becomes a team of one, so pairing, scoring and reporting are the
+  // same code as 2v2 rather than a second implementation.
+  mrun(`state = blank(); state.mode = '1v1'; state.manual = true;
+        state.players = [{id:'a',name:'Ann',legend:''},{id:'b',name:'Bo',legend:''}];
+        state.teams = []; syncSoloTeams();`);
+  check('manual 1v1 makes a team per player', mrun('state.teams.length') === 2);
+  check('the team is named after the player',
+    mrun(`state.teams.map(t => t.name).sort().join(',')`) === 'Ann,Bo');
+  check('each team holds exactly one player',
+    mrun('state.teams.every(t => t.players.length === 1)') === true);
+  mrun(`state.players.push({id:'c',name:'Cy',legend:''}); syncSoloTeams();`);
+  check('a late arrival gets a team without disturbing the others', mrun('state.teams.length') === 3);
+  mrun(`state.players = state.players.filter(p => p.id !== 'a'); syncSoloTeams();`);
+  check('a removed player loses their team', mrun(`state.teams.some(t => t.players[0] === 'a')`) === false);
+
+  // --- shop settings reachable before any mode is picked
+  mrun(`state = blank(); settingsOnly = true; renderControl();`);
+  check('shop settings opens without a mode', mnodes['#control'].hidden === false);
+  check('the splash steps aside for it', mnodes['#splash'].hidden === true);
+  check('only Settings is offered there', shown() === 'settings');
+  check('a way back to the splash is shown', mnodes['#btn-back-splash'].hidden === false);
+  mrun(`settingsOnly = false; renderControl();`);
+  check('backing out returns to the splash', mnodes['#splash'].hidden === false);
+  check('picking a mode leaves the settings detour', mrun(`setMode('2v2'); settingsOnly`) === false);
+  check('the Back button is hidden once a mode exists', mnodes['#btn-back-splash'].hidden === true);
+  check('shop settings is not a saved state',
+    mrun(`JSON.parse(localStorage.getItem('magma-chamber')).settingsOnly`) === undefined);
 
   // Switching must not leave a half-finished round of the other kind behind.
-  mrun(`state.rounds = [{n:1,pairings:[],endsAt:0,pausedMs:0,running:false}];
+  mrun(`setMode('1v1');
+        state.rounds = [{n:1,pairings:[],endsAt:0,pausedMs:0,running:false}];
         state.uvsPairings = [{table:1,names:['a','b'],bye:false,done:false}];
         setMode('2v2');`);
   check('switching clears the round in progress', mrun('state.rounds.length') === 0);
@@ -658,6 +746,11 @@ check('.dsp-logo is width-capped',
 check('brand radios escape the blanket input width',
   /\.pick input\s*\{[^}]*width:\s*auto/.test(css));
 
+// Buttons are nowrap by default, so a card with a sentence in it sizes itself to
+// the whole sentence and pushes the page sideways.
+check('splash cards are allowed to wrap',
+  /\.splash-card\s*\{[^}]*white-space:\s*normal/.test(css));
+
 const toggled = ['#display', '#control', '#dsp-pairings', '#dsp-standings', '#dsp-shop', '#dsp-x'];
 const js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 for (const sel of toggled)
@@ -674,6 +767,19 @@ const missing = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]
 check('every $(#id) in app.js exists in index.html', missing.length === 0, missing.join(', '));
 check('<div> tags balance',
   (html.match(/<div\b/g) || []).length === (html.match(/<\/div>/g) || []).length);
+
+// Deleting the Carde block once took the handlers that followed it with it, and
+// dead buttons look identical to working ones. Every button in the markup must
+// be wired to something, either by id or through a delegated list handler.
+const DELEGATED = /^(btn-logo-clear|file-input)$/;   // wired, but not by their own id
+const buttonIds = [...html.matchAll(/<button[^>]*id="([^"]+)"/g)].map(m => m[1]);
+const unwired = buttonIds.filter(id =>
+  !DELEGATED.test(id) && !new RegExp(`\\$\\('#${id}'\\)\\s*\\.on(click|change)`).test(js));
+check('every button in the markup is wired up', unwired.length === 0, unwired.join(', '));
+
+// The same deletion emptied a template literal and left a stray closing tag.
+check('the team list still prints the team name',
+  /#team-list'\)\.innerHTML[\s\S]{0,200}esc\(t\.name\)/.test(js));
 
 Promise.all(pending).then(() => {
   console.log(failures ? `\n${failures} FAILURE(S)\n` : '\nAll checks passed.\n');

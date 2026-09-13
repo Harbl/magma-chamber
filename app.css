@@ -444,43 +444,62 @@ input:focus, select:focus { outline: 2px solid var(--rift); outline-offset: -1px
     linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
 }
 
-.splash-inner { width: 100%; max-width: 760px; text-align: center; }
-.splash-mark { width: 68px; height: 68px; }
+.splash-inner { width: 100%; max-width: 520px; text-align: center; }
+.splash-mark { width: 48px; height: 48px; }
 .splash-inner h1 {
-  margin: 10px 0 2px;
-  font-size: 34px;
+  margin: 8px 0 2px;
+  font-size: 26px;
   letter-spacing: 0.01em;
   color: var(--magma);
   text-shadow: 0 0 28px rgba(242, 131, 60, 0.35);
 }
-.splash-ask { margin: 0 0 26px; color: var(--dim); }
+.splash-ask { margin: 0 0 18px; font-size: 14px; color: var(--dim); }
 
 /* Two cards side by side, stacking on a narrow laptop rather than squeezing. */
-.splash-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 620px) { .splash-choices { grid-template-columns: 1fr; } }
+.splash-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 520px) { .splash-choices { grid-template-columns: 1fr; } }
 
 .splash-card {
   display: block;
   width: 100%;
   text-align: left;
-  padding: 20px;
+  padding: 13px 15px;
   background: var(--panel);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
+  /* Buttons are nowrap by default, which would size these cards to their whole
+     sentence and push the page sideways. */
+  white-space: normal;
   transition: border-color 0.15s, transform 0.15s;
 }
 .splash-card:hover { border-color: var(--gold); transform: translateY(-2px); filter: none; }
 .splash-card b {
   display: block;
-  font-size: 26px;
-  margin-bottom: 8px;
+  font-size: 19px;
+  margin-bottom: 5px;
   color: var(--gold-hi);
   letter-spacing: 0.02em;
 }
-.splash-card span { display: block; font-size: 13px; line-height: 1.55; color: var(--dim); font-weight: 400; }
-.splash-note { margin: 22px 0 0; font-size: 12px; color: var(--dim); }
+.splash-card span { display: block; font-size: 12px; line-height: 1.5; color: var(--dim); font-weight: 400; }
+
+.splash-chk { justify-content: center; margin: 14px 0 0; font-size: 13px; color: var(--dim); }
+.splash-extra { margin-top: 14px; }
+.splash-mini {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+}
+.splash-mini:hover { color: var(--ink); border-color: var(--gold); filter: none; }
+.splash-note { margin: 16px 0 0; font-size: 12px; color: var(--dim); }
+
+/* Legend names on the lifetime records list, kept off the name column. */
+.list li .legends { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 45%; }
+.list li .legends .legend-chip { width: 10px; height: 10px; }
 
 #mode-badge { color: var(--gold-hi); font-weight: 700; }
 

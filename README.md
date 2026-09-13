@@ -77,7 +77,8 @@ server.
 
 ## Running a night
 
-1. Open the app from the Dock.
+1. Open the app from the Dock and pick **2v2** on the splash. (Tick *Manual*
+   first if it is an unofficial night with no locator event behind it.)
 2. **Setup** — type the event name. Paste the event ID from the locator URL
    (`…/events/`**`254672`**) and press *Import signups*.
 3. **Teams** — pick two players, optionally type a team name, and *Create team*.
@@ -100,7 +101,7 @@ mid-event without losing anything.
 When a round is paired the TV leads with the **pairings and table numbers**, so
 players can find their seat. After the configured number of minutes — or as soon
 as every result is in — it switches itself to the leaderboard. Set that to `0` on
-the Setup tab to skip the pairings view entirely.
+the Settings tab to skip the pairings view entirely.
 
 The TV window is exactly one screen tall and never grows a scrollbar. If the list
 is longer than the screen it creeps downward, holds at the bottom for a few
@@ -113,7 +114,7 @@ Riot's CDN as a 160px crop, so it costs about 6KB per Legend instead of 1.1MB.
 ### Shop branding
 
 The TV lockup is venue over "x" over app name, and the venue half is set per
-install on the **Setup** tab rather than edited into the markup — several shops
+install on the **Settings** tab rather than edited into the markup — several shops
 run their own copy, so nothing about a specific venue is baked into the build.
 
 Pick **Shop name** for plain text or **Logo image** to upload one. With neither
@@ -159,10 +160,22 @@ cycles the rest through.
 Each player can be given a Legend on the Setup tab. It shows beside their name on
 the TV, colour-coded by domain, and feeds the meta breakdown under **Stats**.
 
-**Stats** also holds every saved event, with export to JSON (re-importable) and
-CSV (opens in Excel). Browser storage can be wiped by clearing site data, so the
-exports are the durable copy — the app downloads one automatically each time an
-event is archived.
+**Stats** leads with **Player records** — a lifetime row per player built from the
+archive: matches, W-L-D, win rate, nights played, nights won, and every legend
+they have brought, most-played first. `playerHistory()` accumulates it from the
+archived standings, giving both team-mates their team's result, the same rule the
+Results tab uses. Names are the only key that exists across events, so they are
+matched trimmed and case-insensitively; `'?'` placeholders are skipped.
+
+It only counts **archived** nights, so a night that was never finished contributes
+nothing, and a mirrored 1v1 night contributes nothing either — UVS owns that
+scoring and none of it is kept here. *Export player records (CSV)* writes the
+same table.
+
+Below that sit the legend meta breakdown and every saved event. Backups live on
+**Settings**: JSON (re-importable) and CSV (opens in Excel). Browser storage can
+be wiped by clearing site data, so the exports are the durable copy — the app
+downloads one automatically each time an event is archived.
 
 ---
 
@@ -173,29 +186,88 @@ until one is picked. That choice is what keeps the rest uncluttered:
 
 | mode | tabs | pairings | scoring | reporting |
 |---|---|---|---|---|
-| **1v1** | Setup, Round, Stats | UVS | none — UVS's own | players, on UVS |
-| **2v2** | + Teams, Results, Standings | this app, Swiss | this app, game points | typed in from the Results tab |
+| **1v1** | Setup, Round, Stats, Settings | UVS | none — UVS's own | players, on UVS |
+| **1v1 manual** | + Results, Standings | this app, Swiss | this app, game points | nowhere — it's unofficial |
+| **2v2** | + Teams | this app, Swiss | this app, game points | typed in from the Results tab |
 
-`MODE_TABS` lists the tabs per mode. Individual controls declare their own
-relevance with **`data-only="1v1"` / `data-only="2v2"`** in the markup, so
-`applyMode()` never has to know about each one — bye points and table count are
-2v2-only, *Refresh from UVS* is 1v1-only, and the timer buttons are deliberately
-neither, since both kinds of night need a clock.
+### Manual override
+
+A **Manual** checkbox on the splash — and on Setup, to change your mind later —
+says this is an unofficial night: there is no locator event to read from, so the
+app runs the whole thing itself. It is what a shop uses for an ad-hoc side event.
+
+For 2v2 it only hides the signup import, since 2v2 already pairs locally. For 1v1
+it is the real switch: the mirror goes off and the app pairs, tables and scores
+the night.
+
+**Manual 1v1 reuses the team machinery with one player per team.** `syncSoloTeams()`
+gives every player a team of one, named after them, just before pairing. That is
+the whole implementation — pairings, tables, scoring, standings, the Results list
+and archiving all work unchanged, and there is no second scoring path to keep in
+step. The Teams tab stays hidden because there is nothing to build.
+
+Flipping it mid-event clears the round, exactly like switching mode, and it asks
+first if a round exists.
+
+### How the gating works
+
+`MODE_TABS` lists the tabs per mode (`'1v1'`, `'1v1-manual'`, `'2v2'`). Individual
+controls declare their own relevance with **`data-only`** in the markup, so
+`applyMode()` never has to know about each one. The value is a list of tokens and
+**every one must be active**; `viewTokens()` returns three:
+
+| token | meaning |
+|---|---|
+| `1v1` / `2v2` | the mode itself |
+| `official` / `manual` | whether a real locator event sits behind this night |
+| `mirror` / `local` | who owns the pairings |
+
+So bye points are `data-only="local"` (2v2 *and* manual 1v1), *Refresh from UVS*
+is `data-only="mirror"`, signup import is `data-only="official"`, and the timer
+buttons are deliberately ungated since every kind of night needs a clock.
 
 **The mode sets `uvsMode`** rather than leaving a second switch to keep in
-agreement: 1v1 *is* the UVS mirror, 2v2 is always local. The old checkbox is gone.
+agreement: only an *official* 1v1 is the UVS mirror. The old checkbox is gone.
 
 Switching clears `state.rounds` and any mirrored rows, because a round from one
 mode means something different in the other. Re-picking the same mode is not a
 switch and leaves the event alone. If the open tab is hidden by the new mode it
-falls back to Setup, rather than leaving a blank panel.
+falls back to the first tab that mode has, rather than leaving a blank panel.
 
 `state.mode` starts `null`, so **an existing install lands on the splash once**
-after updating, then remembers the choice.
+after updating, then remembers the choice. Archiving an event and *Reset
+everything* both keep the mode — otherwise finishing a night would throw you back
+to the splash.
+
+### The Settings tab
+
+Everything that belongs to the shop rather than to tonight lives on **Settings**:
+branding, table count, how long pairings hold the TV, and the backup
+export/import. It is available in every mode, and reachable from the splash
+itself via *Shop settings* — that sets a transient `settingsOnly` flag, shows the
+Settings tab alone with a *Back* button, and is deliberately **not** saved, since
+it is a detour rather than a state to come back up in.
 
 > The test harness registers real nodes for the `querySelectorAll` selectors it
 > needs. Without that, every check on tab or setting visibility passes trivially
 > against an empty list — the same trap the no-op `classList` stub created.
+
+### Two things the Carde removal took with it
+
+Deleting the Carde block in `35c5dc3` also deleted the handlers that happened to
+sit after it — **Finish & archive, Reset everything, all three exports and the
+backup import had been dead buttons ever since** — and it emptied the middle of
+the team-list template, leaving a stray `</label>` where the team name should be.
+Both are restored. Two tests now guard the class of mistake:
+
+- *every button in the markup is wired up* — walks every `<button id>` in
+  `index.html` and demands a matching `.onclick`/`.onchange` in `app.js`. A dead
+  button looks exactly like a working one, which is why this went unnoticed.
+- *the team list still prints the team name* — the template must still contain
+  `esc(t.name)`.
+
+Worth remembering when deleting a block: check what followed it, not just what
+was in it.
 
 ## Carde.io was removed entirely (2026-09-13)
 

@@ -48,18 +48,23 @@
     <div class="splash-choices">
       <button class="splash-card" data-mode="1v1">
         <b>1v1</b>
-        <span>Nexus Nights, skirmishes, store events. The Riftbound page makes
-          the pairings and players report themselves &mdash; this puts it all on
-          the TV with a round clock.</span>
+        <span>Nexus Nights, skirmishes, store events. Mirrors the pairings and
+          standings from the Riftbound event page.</span>
       </button>
       <button class="splash-card" data-mode="2v2">
         <b>2v2</b>
-        <span>Teams of two. This app makes the pairings, assigns tables, tracks
-          points for the leaderboard, and gives you a list to report from
-          between rounds.</span>
+        <span>Teams of two. This app pairs, assigns tables and tracks points for
+          the leaderboard.</span>
       </button>
     </div>
-    <p class="splash-note">You can switch later from the Setup tab.</p>
+    <!-- An ad-hoc night has no official event to read from, so the app has to run
+         the whole thing itself. Applies to whichever choice is made above. -->
+    <label class="chk splash-chk"><input type="checkbox" id="splash-manual">
+      Manual &mdash; unofficial night, this app runs the pairings</label>
+    <div class="splash-extra">
+      <button id="splash-settings" class="splash-mini">Shop settings</button>
+    </div>
+    <p class="splash-note">All of this can be changed later from the Setup tab.</p>
   </div>
 </div>
 
@@ -80,6 +85,8 @@
     <button data-tab="results">Results</button>
     <button data-tab="standings">Standings</button>
     <button data-tab="stats">Stats</button>
+    <button data-tab="settings">Settings</button>
+    <button id="btn-back-splash" class="ghost" hidden>Back</button>
     <button id="open-display" class="ghost">Open TV Display</button>
   </nav>
 
@@ -95,45 +102,25 @@
     <label>Overtime after time is called (minutes, 0 = none)
       <input id="ev-overtime" type="number" min="0" max="60" value="0">
     </label>
-    <label data-only="2v2">Points awarded for a bye
+    <label data-only="local">Points awarded for a bye
       <input id="ev-bye" type="number" min="0" max="99" value="8">
     </label>
-    <label data-only="2v2">Number of tables in the store
-      <input id="ev-tables" type="number" min="1" max="99" value="8">
-    </label>
-    <label>Show pairings on the TV for (minutes, 0 = never)
-      <input id="ev-pairing-mins" type="number" min="0" max="60" value="8">
-    </label>
 
-    <h2>Shop branding</h2>
-    <p class="hint">Shown on the TV above the Magma Chamber name. Set once and it
-      sticks on this computer &mdash; it is not cleared between events.</p>
-    <div class="pick">
-      <label><input type="radio" name="brand" id="brand-text"> Shop name</label>
-      <label><input type="radio" name="brand" id="brand-logo"> Logo image</label>
-    </div>
-    <label>Shop name
-      <input id="ev-shop" placeholder="Your Game Shop">
-    </label>
-    <div class="row">
-      <button id="btn-logo" class="ghost">Choose logo image&hellip;</button>
-      <button id="btn-logo-clear" class="ghost">Remove logo</button>
-      <input id="logo-input" type="file" accept="image/*" hidden>
-    </div>
-    <p id="brand-msg" class="msg"></p>
-    <div id="logo-preview" class="logo-preview" hidden>
-      <img id="logo-img" alt="Logo preview">
-      <p>Preview at TV proportions</p>
-    </div>
+    <h2>How this night runs</h2>
+    <label class="chk"><input type="checkbox" id="ev-manual">
+      Manual &mdash; unofficial night, this app runs the pairings</label>
+    <p class="hint" id="manual-hint"></p>
 
-    <h2>Import players</h2>
-    <p class="hint">Paste the event ID from the locator URL &mdash;
-      <code>locator.riftbound.uvsgames.com/events/<b>254672</b></code></p>
-    <div class="row">
-      <input id="ev-id" placeholder="254672" inputmode="numeric">
-      <button id="btn-import">Import signups</button>
+    <h2 data-only="official">Import players</h2>
+    <div data-only="official">
+      <p class="hint">Paste the event ID from the locator URL &mdash;
+        <code>locator.riftbound.uvsgames.com/events/<b>254672</b></code></p>
+      <div class="row">
+        <input id="ev-id" placeholder="254672" inputmode="numeric">
+        <button id="btn-import">Import signups</button>
+      </div>
+      <p id="import-msg" class="msg"></p>
     </div>
-    <p id="import-msg" class="msg"></p>
 
     <h2>Add a player manually</h2>
     <div class="row">
@@ -149,6 +136,7 @@
       <button id="btn-finish" class="warn">Finish &amp; archive event</button>
       <button id="btn-reset" class="danger">Reset everything</button>
     </div>
+    <p id="danger-msg" class="msg"></p>
     <p class="hint">Currently set up for <b id="mode-name">2v2</b> nights.
       Switching clears the round in progress, since the two run differently.</p>
     <div class="row">
@@ -184,19 +172,19 @@
       their own results there. Press <b>Refresh from UVS</b> after each new round
       is paired. The round clock below is still yours.
     </p>
-    <div class="row" data-only="1v1">
+    <div class="row" data-only="mirror">
       <button id="btn-uvs" class="ghost">Refresh from UVS</button>
     </div>
-    <p id="uvs-msg" class="msg" data-only="1v1"></p>
+    <p id="uvs-msg" class="msg" data-only="mirror"></p>
 
-    <!-- The clock belongs to both kinds of night; the pairing buttons do not. -->
+    <!-- The clock belongs to every kind of night; the pairing buttons do not. -->
     <div class="row">
-      <button id="btn-pair" data-only="2v2">Generate pairings</button>
+      <button id="btn-pair" data-only="local">Generate pairings</button>
       <button id="btn-start" class="ghost">Start timer</button>
       <button id="btn-pause" class="ghost">Pause</button>
       <button id="btn-reset-timer" class="ghost">Reset timer</button>
     </div>
-    <div class="row" data-only="2v2">
+    <div class="row" data-only="local">
       <button id="btn-next-round" class="ghost">Finish round &amp; continue</button>
     </div>
     <p id="round-msg" class="msg"></p>
@@ -229,7 +217,57 @@
 
   <!-- STATS -->
   <section data-panel="stats" hidden>
-    <h2>Saved events <span id="archive-count" class="count"></span></h2>
+    <h2>Player records <span id="hist-count" class="count"></span></h2>
+    <p class="hint">Everyone who has played a night you finished and archived,
+      with their lifetime record and the legends they have brought. Both
+      team-mates get their team's result, the same as the reporting list.</p>
+    <div class="row">
+      <button id="btn-export-history" class="ghost">Export player records (CSV)</button>
+    </div>
+    <ul id="hist-list" class="list"></ul>
+    <h2>Legend meta</h2>
+    <ul id="meta-list" class="list"></ul>
+    <h2>Event history <span id="archive-count" class="count"></span></h2>
+    <ul id="archive-list" class="list"></ul>
+    <p id="stats-msg" class="msg"></p>
+  </section>
+
+  <!-- SETTINGS -->
+  <!-- Things that belong to the shop rather than tonight's event: set once, kept
+       across archiving and Reset everything. -->
+  <section data-panel="settings" hidden>
+    <h2>Shop branding</h2>
+    <p class="hint">Shown on the TV above the Magma Chamber name. Set once and it
+      sticks on this computer &mdash; it is not cleared between events.</p>
+    <div class="pick">
+      <label><input type="radio" name="brand" id="brand-text"> Shop name</label>
+      <label><input type="radio" name="brand" id="brand-logo"> Logo image</label>
+    </div>
+    <label>Shop name
+      <input id="ev-shop" placeholder="Your Game Shop">
+    </label>
+    <div class="row">
+      <button id="btn-logo" class="ghost">Choose logo image&hellip;</button>
+      <button id="btn-logo-clear" class="ghost">Remove logo</button>
+      <input id="logo-input" type="file" accept="image/*" hidden>
+    </div>
+    <p id="brand-msg" class="msg"></p>
+    <div id="logo-preview" class="logo-preview" hidden>
+      <img id="logo-img" alt="Logo preview">
+      <p>Preview at TV proportions</p>
+    </div>
+
+    <h2>The room</h2>
+    <label data-only="local">Number of tables in the store
+      <input id="ev-tables" type="number" min="1" max="99" value="8">
+    </label>
+    <label>Show pairings on the TV for (minutes, 0 = never)
+      <input id="ev-pairing-mins" type="number" min="0" max="60" value="8">
+    </label>
+    <p class="hint">TV text size is set on the display window itself with the
+      <b>+</b>, <b>&minus;</b> and <b>0</b> keys.</p>
+
+    <h2>Backups</h2>
     <div class="row">
       <button id="btn-export">Export all (JSON)</button>
       <button id="btn-export-csv">Export all (CSV)</button>
@@ -238,11 +276,7 @@
       <input id="file-input" type="file" accept="application/json" hidden>
     </div>
     <p class="hint">Browser storage can be wiped by clearing site data. Export after each night to keep a durable copy.</p>
-    <p id="stats-msg" class="msg"></p>
-    <h2>Legend meta</h2>
-    <ul id="meta-list" class="list"></ul>
-    <h2>Event history</h2>
-    <ul id="archive-list" class="list"></ul>
+    <p id="settings-msg" class="msg"></p>
   </section>
 </div>
 <script src="app.js"></script>
