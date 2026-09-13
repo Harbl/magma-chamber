@@ -150,6 +150,18 @@
       Carde.io has. Local pairing is switched off to stop the two disagreeing.
       The round timer below still works.
     </p>
+    <p id="uvs-lock" class="lock" hidden>
+      <b>Pairings are coming from the UVS event page.</b>
+      This app is not making its own, so they always match what the players see.
+      Press <b>Refresh from UVS</b> after each new round is paired there.
+    </p>
+    <label class="chk"><input type="checkbox" id="uvs-on">
+      Use the pairings from the UVS event page</label>
+    <div class="row">
+      <button id="btn-uvs" class="ghost">Refresh from UVS</button>
+    </div>
+    <p id="uvs-msg" class="msg"></p>
+
     <div class="row">
       <button id="btn-pair">Generate pairings</button>
       <button id="btn-start" class="ghost">Start timer</button>

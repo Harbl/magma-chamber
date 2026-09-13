@@ -166,6 +166,53 @@ event is archived.
 
 ---
 
+## UVS pairings
+
+Some shops pair and report on the UVS event page itself and let players submit
+their own results. For those, tick **Use the pairings from the UVS event page**
+on the Round tab and the app stops making its own.
+
+The locator has an undocumented but fully public TV feed keyed on the **event id
+alone** — no round id, no login, no token:
+
+| endpoint | gives |
+|---|---|
+| `/api/v2/player/events/{id}/tv/` | event name, lifecycle, the round list with per-round status |
+| `/api/v2/player/events/{id}/tv/matches/` | the current round: table numbers, byes, players, winners |
+| `/api/v2/player/events/{id}/tv/standings/` | rank, match points, OMW/GWP |
+| `/api/v2/player/events/{id}/tv/roster/` | check-in list |
+
+The id is whatever was used for *Import signups*, now kept in `state.eventId`, so
+nothing gets pasted twice. CORS is the same allowlist as the rest of the API, so
+this works from `localhost` with no proxy.
+
+`tv/matches/` carries results as players report them (`status`, `is_winner`), so
+the app polls every 30s and picks them up without anyone pressing anything.
+
+### How it maps onto teams
+
+`applyUvsRound()` **materialises the UVS round as an ordinary local round**, so
+score entry, table numbers, the leaderboard and the TV all work unchanged rather
+than needing a parallel path.
+
+Each UVS name is resolved by `teamByName()`, which tries team names first and then
+player names. That covers both ways shops run 2v2 on the locator — one account per
+team, or everyone registered individually — without having to be told which.
+
+Names that match nothing are listed back in the message line. A match whose two
+names land on the *same* team is dropped rather than allowed to corrupt standings.
+
+Refreshing the same round number replaces it and **keeps scores already typed in**;
+a new round number appends.
+
+> **What UVS cannot give us is the game points.** `games_won` counts games within
+> the match, not the 8–11 style score this leaderboard ranks on. Pairings, tables
+> and the winner come from UVS; the points are still typed in here.
+
+The platform has no team concept at all — 25 sampled events named "2v2" were every
+one of them `is_team_event: false` with `maximum_number_of_players_in_match: 2`,
+and no match ever held more than two players. So team scoring stays local.
+
 ## Carde.io reporting
 
 The **Carde.io** tab pulls a round's pairings from the shop's Carde.io event and

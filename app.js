@@ -42,6 +42,7 @@ function blank() {
   return {
     name: '', minutes: 50, byePoints: 8, tables: 8, pairingMinutes: 8,
     shopName: '', brandMode: 'text',   // venue half of the TV lockup; logo itself is in LOGO_KEY
+    eventId: '', uvsMode: false,       // locator event, and whether it owns the pairings
     players: [],            // {id, name, legend}
     teams: [],              // {id, name, players:[id,id], custom:bool}
     rounds: [],             // {n, pairings:[{a, b|null, winner, pa, pb}], endsAt, pausedMs, running}
@@ -423,8 +424,11 @@ function renderControl() {
 
   // Once Carde.io owns the pairings, local pairing has to be off or the two
   // disagree and results get reported against the wrong matches.
-  const locked = cardeActive();
-  $('#carde-lock').hidden = !locked;
+  const locked = cardeActive() || state.uvsMode;
+  $('#carde-lock').hidden = !cardeActive();
+  $('#uvs-lock').hidden = !state.uvsMode || cardeActive();
+  $('#uvs-on').checked = !!state.uvsMode;
+  $('#btn-uvs').disabled = !state.uvsMode || cardeActive();
   ['#btn-pair', '#btn-next-round'].forEach(sel => { $(sel).disabled = locked; });
   $('#pairing-list').innerHTML = !r ? '<li class="sub">No pairings yet.</li>' : r.pairings.map((p, i) => {
     if (p.b === null) return `<li><span class="grow">${esc(teamName(p.a))}</span>
@@ -509,6 +513,104 @@ async function importSignups(id) {
     if (!data.next_page_number) break;
   }
   return { name: ev.name, minutes: ev.settings?.round_duration_in_minutes || state.minutes, names };
+}
+
+// ------------------------------------------------------- UVS pairings
+//
+// The locator has a public TV feed keyed on the event id alone -- no round id,
+// no login. `tv/matches/` returns the *current* round, and carries results as
+// players self-report them, so it doubles as a results feed.
+//
+// What it cannot give us is Riftbound game points: `games_won` counts games in
+// the match, not the 8-11 style score this leaderboard ranks on. So we take the
+// pairings, tables and winner from UVS, and the points are still typed in here.
+
+async function fetchUvsRound(id) {
+  const base = apiBase();
+  if (!base) throw new Error('Pulling pairings needs the app to be running from localhost.');
+  const ev = await fetch(`${base}/api/v2/player/events/${id}/tv/`)
+    .then(r => r.ok ? r.json() : Promise.reject(new Error(`Event ${id} not found`)));
+  const res = await fetch(`${base}/api/v2/player/events/${id}/tv/matches/`);
+  if (!res.ok) throw new Error('That event has no pairings to read yet.');
+  const data = await res.json();
+
+  // The matches feed is not labelled with a round, so work it out from the round
+  // list: the one in progress if there is one, otherwise the last that exists.
+  // (Every event I could sample had already finished, so the IN_PROGRESS branch
+  // is from the schema rather than from observation.)
+  const rounds = (ev.tournament_phases || []).flatMap(p => p.rounds || []);
+  const last = [...rounds].reverse().find(r => r.status === 'IN_PROGRESS') || rounds[rounds.length - 1];
+
+  return {
+    round: last?.round_number ?? rounds.length,
+    matches: (data.results || []).map(m => ({
+      table: m.table_number,
+      // A bye comes back as a single player, and match_is_bye confirms it.
+      bye: !!m.match_is_bye || m.players.length < 2,
+      names: m.players.map(p => p.tv_display_name),
+      winner: m.players.find(p => p.is_winner)?.tv_display_name || null,
+      done: m.status === 'COMPLETE',
+    })),
+  };
+}
+
+// A UVS name is matched against team names first, then against player names --
+// shops running 2v2 on the locator either register one account per team or
+// register everyone individually, and this handles both without being told which.
+function teamByName(n) {
+  const k = String(n || '').trim().toLowerCase();
+  if (!k) return null;
+  return state.teams.find(t => t.name.trim().toLowerCase() === k)
+      || state.teams.find(t => t.players.some(id => (player(id)?.name || '').trim().toLowerCase() === k))
+      || null;
+}
+
+// Materialise the UVS round as an ordinary local round. Everything downstream --
+// score entry, tables, the leaderboard, the TV -- then works unchanged.
+function applyUvsRound(feed) {
+  const prev = currentRound();
+  const unmatched = new Set();
+  const pairings = [];
+
+  for (const m of feed.matches) {
+    const ids = m.names.map(n => {
+      const t = teamByName(n);
+      if (!t) unmatched.add(n);
+      return t?.id ?? null;
+    });
+    if (m.bye) {
+      if (ids[0]) pairings.push({ a: ids[0], b: null, winner: null, pa: state.byePoints ?? 8, pb: null, table: null });
+      continue;
+    }
+    const [a, b] = ids;
+    // Both names landing on one team means the mapping is wrong, not that a team
+    // plays itself -- drop it rather than corrupt the standings.
+    if (!a || !b || a === b) continue;
+    pairings.push({
+      a, b, table: m.table ?? null,
+      winner: m.winner ? (teamByName(m.winner)?.id === a ? 'a' : 'b') : null,
+      pa: null, pb: null,
+    });
+  }
+
+  // Refreshing the same round replaces it; a new round number appends. Scores
+  // already typed for a match are kept, since UVS has no idea about them.
+  const keep = {};
+  if (prev) for (const p of prev.pairings) keep[[p.a, p.b].sort().join('|')] = p;
+  for (const p of pairings) {
+    const had = keep[[p.a, p.b].sort().join('|')];
+    if (had) { p.pa = had.pa; p.pb = had.pb; p.winner = p.winner || had.winner; }
+  }
+
+  const round = { n: feed.round, pairings, endsAt: 0, pausedMs: state.minutes * 60000, running: false };
+  if (prev && prev.n === feed.round) {
+    round.endsAt = prev.endsAt; round.pausedMs = prev.pausedMs; round.running = prev.running;
+    state.rounds[state.rounds.length - 1] = round;
+  } else {
+    state.rounds.push(round);
+  }
+  save();
+  return { count: pairings.length, unmatched: [...unmatched] };
 }
 
 // ---------------------------------------------------------------- archive
@@ -647,12 +749,48 @@ if (!isDisplay) {
       state.players.push(...added.map(n => ({ id: uid(), name: n, legend: '' })));
       if (!state.name) state.name = name;
       state.minutes = minutes;
+      state.eventId = id;   // remembered, so pulling pairings never asks for it again
       save();
       msg('#import-msg', `Imported ${added.length} player${added.length === 1 ? '' : 's'} from "${name}".`, 'ok');
     } catch (err) {
       msg('#import-msg', err.message, 'err');
     }
   };
+
+  $('#uvs-on').onchange = e => {
+    state.uvsMode = e.target.checked;
+    save();
+    if (state.uvsMode) pullUvs();
+  };
+  $('#btn-uvs').onclick = () => pullUvs();
+
+  async function pullUvs() {
+    // The id is whatever was used for signup import, so there is nothing to paste.
+    const id = state.eventId || $('#ev-id').value.trim().replace(/\D/g, '');
+    if (!id) return msg('#uvs-msg', 'Import the signups on the Setup tab first — that is where the event ID comes from.', 'err');
+    if (!state.teams.length) return msg('#uvs-msg', 'Make the teams first, so pairings have something to attach to.', 'err');
+    msg('#uvs-msg', 'Reading the UVS event page…');
+    try {
+      const feed = await fetchUvsRound(id);
+      if (!feed.matches.length) return msg('#uvs-msg', 'No pairings up on UVS yet for this round.', 'err');
+      const { count, unmatched } = applyUvsRound(feed);
+      if (!count) {
+        return msg('#uvs-msg', `Round ${feed.round} read, but none of the names matched a team. Check they are spelled the same here as on UVS.`, 'err');
+      }
+      msg('#uvs-msg', unmatched.length
+        ? `Round ${feed.round}: ${count} match${count === 1 ? '' : 'es'} loaded. Not recognised: ${unmatched.join(', ')}.`
+        : `Round ${feed.round}: ${count} match${count === 1 ? '' : 'es'} loaded from UVS.`,
+        unmatched.length ? 'err' : 'ok');
+    } catch (err) { msg('#uvs-msg', err.message, 'err'); }
+  }
+
+  // While UVS owns the round, poll so self-reported results land without anyone
+  // pressing anything. Quietly -- a failed poll must not stamp on the message line.
+  setInterval(() => {
+    if (state.uvsMode && !cardeActive() && state.eventId && state.teams.length) {
+      fetchUvsRound(state.eventId).then(f => f.matches.length && applyUvsRound(f)).catch(() => {});
+    }
+  }, 30000);
 
   $('#btn-add-player').onclick = () => {
     const name = $('#new-player').value.trim();
@@ -705,6 +843,7 @@ if (!isDisplay) {
 
   $('#btn-pair').onclick = () => {
     if (cardeActive()) return msg('#round-msg', 'Carde.io is running this event — pair the round there.', 'err');
+    if (state.uvsMode) return msg('#round-msg', 'UVS is providing the pairings — press Refresh from UVS instead.', 'err');
     if (state.teams.length < 2) return msg('#round-msg', 'Need at least two teams.', 'err');
     const r = currentRound();
     if (r && r.pairings.some(p => !reported(p))) return msg('#round-msg', 'Enter both scores for every match first.', 'err');
@@ -742,6 +881,7 @@ if (!isDisplay) {
   };
   $('#btn-next-round').onclick = () => {
     if (cardeActive()) return msg('#round-msg', 'Carde.io is running this event — advance the round there.', 'err');
+    if (state.uvsMode) return msg('#round-msg', 'UVS is providing the pairings — pair the next round there, then press Refresh from UVS.', 'err');
     const r = currentRound();
     if (!r) return msg('#round-msg', 'No round in progress.', 'err');
     if (r.pairings.some(p => !reported(p))) return msg('#round-msg', 'Enter both scores for every match first.', 'err');
