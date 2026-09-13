@@ -26,11 +26,10 @@ const CARDE_SRC = fs.readFileSync(path.join(__dirname, '..', 'carde.js'), 'utf8'
 // A node that actually remembers what was written to it, so the display path can
 // be inspected. One instance per selector, reused across lookups.
 function makeNode() {
-  return {
-    innerHTML: '', textContent: '', hidden: false, value: '', className: '',
+  const n = {
+    innerHTML: '', textContent: '', hidden: false, value: '',
     dataset: {}, files: [], attrs: {},
     style: { setProperty() {} },
-    classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
     getAttribute(k) { return this.attrs[k] ?? null; },
     setAttribute(k, v) { this.attrs[k] = String(v); },
     getContext: () => ({ drawImage() {} }),          // enough <canvas> for the logo shrinker
@@ -40,6 +39,21 @@ function makeNode() {
     getBoundingClientRect: () => ({ top: 0, height: 10 }),
     scrollTop: 0, scrollHeight: 100, clientHeight: 100,
   };
+  // classList has to really track classes: the timer sets `className = 'timer'`
+  // and then adds a state class, so a no-op stub makes those checks vacuous.
+  let classes = new Set();
+  Object.defineProperty(n, 'className', {
+    enumerable: true,
+    get: () => [...classes].join(' '),
+    set: v => { classes = new Set(String(v).split(/\s+/).filter(Boolean)); },
+  });
+  n.classList = {
+    add: (...c) => c.forEach(x => classes.add(x)),
+    remove: (...c) => c.forEach(x => classes.delete(x)),
+    toggle: (c, on) => ((on ?? !classes.has(c)) ? classes.add(c) : classes.delete(c)),
+    contains: c => classes.has(c),
+  };
+  return n;
 }
 
 function makeCtx(search = '') {
@@ -461,77 +475,115 @@ console.log('\nshop branding:');
     check('svg passes through unscaled', url === 'data:image/svg+xml;base64,VEC')));
 }
 
-// --- 9. UVS supplies the pairings -----------------------------------------
-// The payload shape below is copied from a live tv/matches/ response.
-console.log('\nUVS pairings:');
+// --- 9. mirroring a UVS event ---------------------------------------------
+// For 1v1 nights the app scores nothing: it mirrors UVS's pairings and
+// standings and runs the clock. Payload shapes are from a live tv/ response.
+console.log('\nUVS mirror:');
 {
-  const { ctx: uctx, nodes: unodes } = makeCtx('');
+  const { ctx: uctx, nodes: unodes } = makeCtx('?display=1');
   vm.runInContext(SRC, uctx);
   const urun = expr => vm.runInContext(expr, uctx);
 
-  // Two teams of two, named like a shop would name them.
-  urun(`state = blank();
-    state.players = [
-      {id:'p1',name:'Hytek',legend:''}, {id:'p2',name:'Killowatt',legend:''},
-      {id:'p3',name:'Tippyspoon',legend:''}, {id:'p4',name:'ValiantZERG',legend:''},
-      {id:'p5',name:'Solo Sam',legend:''}, {id:'p6',name:'Solo Pat',legend:''}];
-    state.teams = [
-      {id:'t1',name:'Rift Raiders',players:['p1','p2'],custom:true},
-      {id:'t2',name:'Team Two',players:['p3','p4'],custom:true},
-      {id:'t3',name:'Byers',players:['p5','p6'],custom:true}];`);
+  const FEED = {
+    name: 'Nexus Night', round: 2,
+    pairings: [
+      { table: 1, bye: false, names: ['AzMogui', 'Bee Mielka'], winner: 'AzMogui', done: true },
+      { table: 2, bye: false, names: ['Tidecaller', 'zachmae'], winner: null, done: false },
+      { table: null, bye: true, names: ['Printa'], winner: null, done: true },
+    ],
+    standings: [
+      { rank: 1, name: 'AzMogui', w: 2, l: 0, d: 0, pts: 6 },
+      { rank: 2, name: 'Tidecaller', w: 1, l: 1, d: 0, pts: 3 },
+    ],
+  };
 
-  // A shop that registers one account per team: the UVS name IS the team name.
-  urun(`applyUvsRound({ round: 1, matches: [
-    { table: 1, bye: false, names: ['Rift Raiders','Team Two'], winner: null, done: false },
-    { table: null, bye: true, names: ['Byers'], winner: null, done: false } ] });`);
-  check('team-named pairing is matched', urun('currentRound().pairings.length') === 2);
-  check('table number is carried across', urun('currentRound().pairings[0].table') === 1);
-  check('the bye is recognised', urun('currentRound().pairings[1].b') === null);
-  check('the bye is awarded its points', urun('currentRound().pairings[1].pa') === 8);
+  urun(`state = blank(); state.uvsMode = true;`);
+  urun(`applyUvs(${JSON.stringify(FEED)});`);
+  check('mirroring needs no teams at all', urun('state.teams.length') === 0);
+  check('pairings are mirrored verbatim', urun('displayPairings().length') === 3);
+  check('table numbers come straight through', urun('displayPairings()[0].table') === 1);
+  check('a clock round is created to hold the timer', urun('state.rounds.length') === 1);
+  check('the clock round carries no pairings', urun('currentRound().pairings.length') === 0);
+  check('the round number follows UVS', urun('currentRound().n') === 2);
 
-  // A shop that registers everyone individually: match on player names instead.
-  urun(`state.rounds = []; applyUvsRound({ round: 1, matches: [
-    { table: 2, bye: false, names: ['Hytek','Tippyspoon'], winner: 'Tippyspoon', done: true } ] });`);
-  check('player-named pairing resolves to teams',
-    urun(`currentRound().pairings[0].a + '/' + currentRound().pairings[0].b`) === 't1/t2');
-  check('a reported winner comes through', urun('currentRound().pairings[0].winner') === 'b');
-  check('points are still blank for the organiser', urun('currentRound().pairings[0].pa') === null);
+  urun('renderDisplay()');
+  check('the TV shows UVS names, not team names',
+    unodes['#dsp-pairings'].innerHTML.includes('AzMogui'));
+  check('the TV labels the UVS round', unodes['#dsp-round'].textContent.includes('Round 2'));
 
-  // Refreshing the same round must not lose scores already typed in.
-  urun(`currentRound().pairings[0].pa = 11; currentRound().pairings[0].pb = 8;
-    applyUvsRound({ round: 1, matches: [
-      { table: 2, bye: false, names: ['Hytek','Tippyspoon'], winner: 'Hytek', done: true } ] });`);
-  check('refreshing keeps one round, not two', urun('state.rounds.length') === 1);
-  check('typed scores survive a refresh', urun('currentRound().pairings[0].pa') === 11);
+  // Standings on the TV must be UVS's, since nothing is scored locally.
+  urun(`state.pairingMinutes = 0; renderDisplay();`);
+  check('standings mode is reached with no local scoring', urun(`displayMode()`) === 'standings');
+  check('UVS standings are shown', unodes['#dsp-standings'].innerHTML.includes('Tidecaller'));
+  check('UVS match points are shown', unodes['#dsp-standings'].innerHTML.includes('6'));
 
-  // A new round number appends instead of replacing.
-  urun(`applyUvsRound({ round: 2, matches: [
-    { table: 1, bye: false, names: ['Rift Raiders','Byers'], winner: null, done: false } ] });`);
-  check('a new round is appended', urun('state.rounds.length') === 2);
-  check('the new round keeps its number', urun('currentRound().n') === 2);
+  // Re-polling mid-round must not restart the clock on the TV.
+  urun(`state.pairingMinutes = 8;
+        currentRound().running = true; currentRound().endsAt = 12345;
+        applyUvs(${JSON.stringify(FEED)});`);
+  check('a mid-round refresh keeps one round', urun('state.rounds.length') === 1);
+  check('a mid-round refresh does not reset the clock', urun('currentRound().endsAt') === 12345);
 
-  // Junk must be dropped, not allowed to corrupt the standings.
-  urun(`state.rounds = []; var r = applyUvsRound({ round: 1, matches: [
-    { table: 1, bye: false, names: ['Nobody Here','Also Nobody'], winner: null, done: false },
-    { table: 2, bye: false, names: ['Hytek','Killowatt'], winner: null, done: false } ] });`);
-  check('unknown names are reported back', urun(`r.unmatched.join(',')`) === 'Nobody Here,Also Nobody');
-  check('two players from one team is dropped', urun('currentRound().pairings.length') === 0);
+  // A new round number does get a fresh clock.
+  urun(`applyUvs(Object.assign(${JSON.stringify(FEED)}, { round: 3 }));`);
+  check('a new UVS round starts a new clock', urun('state.rounds.length') === 2);
+  check('the new clock is not running', urun('currentRound().running') === false);
 
-  // Local pairing has to be off while UVS owns the round.
+  // Switching off has to leave nothing stale behind.
+  urun(`state.uvsMode = false; state.uvsPairings = null; state.uvsStandings = null;`);
+  check('turning it off clears the mirrored rows', urun('displayPairings().length') === 0);
+
+  // Local pairing stays locked while mirroring.
   urun(`state = blank(); state.uvsMode = true; renderControl();`);
-  check('Generate pairings is disabled under UVS', unodes['#btn-pair'].disabled === true);
-  check('the UVS explanation is shown', unodes['#uvs-lock'].hidden === false);
-  urun(`state.teams = [{id:'a',name:'A',players:[],custom:true},{id:'b',name:'B',players:[],custom:true}];
-        $('#btn-pair').onclick();`);
-  check('the pair handler refuses under UVS', urun('state.rounds.length') === 0);
+  check('Generate pairings is disabled while mirroring', unodes['#btn-pair'].disabled === true);
+  check('the explanation is shown', unodes['#uvs-lock'].hidden === false);
 
-  urun(`state.uvsMode = false; renderControl();`);
-  check('unticking hands pairing back', unodes['#btn-pair'].disabled === false);
-
-  // The event id is remembered from the signup import, so nothing is re-pasted.
   const src = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
   check('importing stores the event id', src.includes('state.eventId = id;'));
   check('pulling reuses the stored id', src.includes("state.eventId || $('#ev-id')"));
+  check('nothing is ever pushed back to UVS', !/player\/events[^`]*`,\s*\{\s*method/.test(src));
+}
+
+// --- 9b. overtime clock ----------------------------------------------------
+console.log('\novertime clock:');
+{
+  const { ctx: octx, nodes: onodes } = makeCtx('?display=1');
+  vm.runInContext(SRC, octx);
+  const orun = expr => vm.runInContext(expr, octx);
+  const at = (left, over) => JSON.parse(orun(
+    `state = blank(); state.minutes = 50; state.overtime = ${over};
+     state.rounds = [{n:1, pairings:[], endsAt: Date.now() + (${left}), pausedMs: 0, running: true}];
+     JSON.stringify(clock())`));
+
+  check('normal time counts down', at(90000, 5).phase === 'main');
+  check('past zero with overtime set switches to overtime', at(-60000, 5).phase === 'overtime');
+  check('overtime counts down from the set minutes',
+    Math.round(at(-60000, 5).ms / 1000) === 240);        // 5 min less the 1 min already past
+  check('overtime expiring ends the clock', at(-400000, 5).phase === 'done');
+  check('overtime of 0 goes straight to done', at(-1000, 0).phase === 'done');
+  check('a paused clock is unaffected by overtime',
+    JSON.parse(orun(`state.rounds[0].running = false; state.rounds[0].pausedMs = 60000;
+      JSON.stringify(clock())`)).phase === 'paused');
+
+  // And it has to actually reach the TV, in red.
+  orun(`state.rounds[0].running = true; state.rounds[0].endsAt = Date.now() - 30000;
+        state.overtime = 5; tick();`);
+  check('the TV marks overtime', onodes['#dsp-timer'].className.includes('overtime'));
+  check('the TV labels it Overtime', onodes['#dsp-timer-label'].textContent === 'Overtime');
+
+  // The ordinary warning colours, which the old no-op classList stub could never
+  // actually have verified.
+  const cls = left => {
+    orun(`state.overtime = 0; state.rounds[0].running = true;
+          state.rounds[0].endsAt = Date.now() + (${left}); tick();`);
+    return onodes['#dsp-timer'].className;
+  };
+  check('over five minutes is unstyled', cls(10 * 60000) === 'timer');
+  check('under five minutes warns', cls(4 * 60000).includes('warn'));
+  check('under one minute is critical', cls(30000).includes('crit'));
+  check('expired with no overtime is done', cls(-1000).includes('done'));
+  const css2 = fs.readFileSync(path.join(__dirname, '..', 'app.css'), 'utf8');
+  check('overtime has its own styling', /\.timer\.overtime\s*\{[^}]*color:/.test(css2));
 }
 
 // --- 10. the [hidden] override is still in place --------------------------

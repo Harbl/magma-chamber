@@ -161,6 +161,9 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
 .timer.warn  { color: #f0b429; text-shadow: 0 0 40px rgba(240, 180, 41, 0.4); }
 .timer.crit  { color: #ff5a4d; text-shadow: 0 0 46px rgba(255, 90, 77, 0.5); animation: pulse 1s ease-in-out infinite; }
 .timer.done  { color: #ff5a4d; animation: pulse 0.7s ease-in-out infinite; }
+/* Overtime: hard red the moment the round clock runs out, so it reads as a
+   different thing from the last minute of normal time rather than more of it. */
+.timer.overtime { color: #ff2d20; text-shadow: 0 0 50px rgba(255, 45, 32, 0.6); animation: pulse 1.4s ease-in-out infinite; }
 .timer.paused { opacity: 0.45; }
 
 @keyframes pulse { 50% { opacity: 0.45; } }

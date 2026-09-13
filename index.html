@@ -69,6 +69,9 @@
     <label>Points awarded for a bye
       <input id="ev-bye" type="number" min="0" max="99" value="8">
     </label>
+    <label>Overtime after time is called (minutes, 0 = none)
+      <input id="ev-overtime" type="number" min="0" max="60" value="0">
+    </label>
     <label>Number of tables in the store
       <input id="ev-tables" type="number" min="1" max="99" value="8">
     </label>
@@ -151,12 +154,14 @@
       The round timer below still works.
     </p>
     <p id="uvs-lock" class="lock" hidden>
-      <b>Pairings are coming from the UVS event page.</b>
-      This app is not making its own, so they always match what the players see.
-      Press <b>Refresh from UVS</b> after each new round is paired there.
+      <b>Showing the UVS event.</b>
+      Pairings and standings are mirrored straight from UVS, and players report
+      their own results there &mdash; nothing is scored or sent from here. The
+      round clock below is yours. Press <b>Refresh from UVS</b> after each new
+      round is paired.
     </p>
     <label class="chk"><input type="checkbox" id="uvs-on">
-      Use the pairings from the UVS event page</label>
+      Show the UVS event (1v1 nights &mdash; display and clock only)</label>
     <div class="row">
       <button id="btn-uvs" class="ghost">Refresh from UVS</button>
     </div>

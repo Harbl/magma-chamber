@@ -40,9 +40,10 @@ let state = load();
 
 function blank() {
   return {
-    name: '', minutes: 50, byePoints: 8, tables: 8, pairingMinutes: 8,
+    name: '', minutes: 50, byePoints: 8, tables: 8, pairingMinutes: 8, overtime: 0,
     shopName: '', brandMode: 'text',   // venue half of the TV lockup; logo itself is in LOGO_KEY
-    eventId: '', uvsMode: false,       // locator event, and whether it owns the pairings
+    eventId: '', uvsMode: false,       // locator event, and whether the TV is mirroring it
+    uvsRound: 0, uvsPairings: null, uvsStandings: null,
     players: [],            // {id, name, legend}
     teams: [],              // {id, name, players:[id,id], custom:bool}
     rounds: [],             // {n, pairings:[{a, b|null, winner, pa, pb}], endsAt, pausedMs, running}
@@ -269,6 +270,22 @@ function remainingMs() {
   return Math.max(0, r.endsAt - Date.now());
 }
 
+// What the TV should actually show. Once the round clock reaches zero an
+// optional overtime clock takes over and counts down from state.overtime in
+// red; with overtime set to 0 it goes straight to "Time!" as it always did.
+function clock() {
+  const r = currentRound();
+  if (!r) return { ms: null, phase: 'idle' };
+  const total = (state.minutes || 50) * 60000;
+  if (!r.running) return { ms: r.pausedMs ?? total, phase: 'paused' };
+  const left = r.endsAt - Date.now();
+  if (left > 0) return { ms: left, phase: 'main' };
+  const ot = (state.overtime || 0) * 60000;
+  // `left` is negative past time, so ot + left is what is left of overtime.
+  if (ot > 0 && ot + left > 0) return { ms: ot + left, phase: 'overtime' };
+  return { ms: 0, phase: 'done' };
+}
+
 function fmt(ms) {
   if (ms === null) return '--:--';
   const s = Math.ceil(ms / 1000);
@@ -311,7 +328,8 @@ function renderDisplay() {
   const mode = displayMode();
   if (mode !== lastMode) { scrollAt = 0; atBottom = false; holdUntil = 0; }
   lastMode = mode;
-  const roundName = r ? `Round ${r.n}` : (state.cardeRoundLabel || '');
+  const roundName = state.uvsMode ? (state.uvsRound ? `Round ${state.uvsRound}` : '')
+    : r ? `Round ${r.n}` : (state.cardeRoundLabel || '');
   $('#dsp-round').textContent = !roundName ? 'Waiting to start'
     : `${roundName} — ${mode === 'pairings' ? 'Pairings' : 'Standings'}`;
 
@@ -337,20 +355,29 @@ function renderDisplay() {
     return;
   }
 
-  const rows = standings();
+  // Mirroring UVS means showing UVS's own standings -- ranked on its match
+  // points, not this app's game points, because nothing is scored here.
+  const rows = state.uvsMode
+    ? (state.uvsStandings || []).map((s, i) => ({
+        rank: s.rank ?? i + 1, name: s.name, chips: '',
+        w: s.w, l: s.l, d: s.d, points: s.pts,
+      }))
+    : standings().map((s, i) => ({
+        rank: i + 1, name: s.team.name, chips: s.team.players.map(playerChip).join(''),
+        w: s.w, l: s.l, d: s.d, points: s.gp,
+      }));
+
   $('#dsp-empty').hidden = rows.length > 0;
-  $('#dsp-standings').innerHTML = rows.map((s, i) => {
-    const ps = s.team.players.map(playerChip).join('');
-    return `<li class="${i === 0 ? 'top' : ''}" style="--rank-color:${i === 0 ? 'var(--gold)' : 'var(--line)'}">
-      <div class="st-rank">${i + 1}</div>
+  $('#dsp-standings').innerHTML = rows.map((s, i) => `
+    <li class="${i === 0 ? 'top' : ''}" style="--rank-color:${i === 0 ? 'var(--gold)' : 'var(--line)'}">
+      <div class="st-rank">${s.rank}</div>
       <div class="st-team">
-        <div class="st-name">${esc(s.team.name)}</div>
-        <div class="st-players">${ps}</div>
+        <div class="st-name">${esc(s.name)}</div>
+        ${s.chips ? `<div class="st-players">${s.chips}</div>` : ''}
       </div>
       <div class="st-record">${s.w}-${s.l}${s.d ? `-${s.d}` : ''}</div>
-      <div class="st-points">${s.gp}<i class="st-pts-label">pts</i></div>
-    </li>`;
-  }).join('');
+      <div class="st-points">${s.points}<i class="st-pts-label">pts</i></div>
+    </li>`).join('');
 
   tick();
 }
@@ -362,15 +389,15 @@ function tick() {
   // The pairings-to-standings switch is time-based, so poll for it here.
   if (displayMode() !== lastMode) { renderDisplay(); return; }
   const el = $('#dsp-timer'), label = $('#dsp-timer-label');
-  const r = currentRound();
-  const ms = remainingMs();
+  const { ms, phase } = clock();
   el.textContent = fmt(ms);
   el.className = 'timer';
-  if (!r) { label.textContent = 'Round Timer'; return; }
-  if (!r.running) { el.classList.add('paused'); label.textContent = 'Paused'; return; }
+  if (phase === 'idle') { label.textContent = 'Round Timer'; return; }
+  if (phase === 'paused') { el.classList.add('paused'); label.textContent = 'Paused'; return; }
+  if (phase === 'overtime') { el.classList.add('overtime'); label.textContent = 'Overtime'; return; }
+  if (phase === 'done') { el.classList.add('done'); label.textContent = 'Time!'; return; }
   label.textContent = 'Time Remaining';
-  if (ms === 0) { el.classList.add('done'); label.textContent = 'Time!'; }
-  else if (ms < 60000) el.classList.add('crit');
+  if (ms < 60000) el.classList.add('crit');
   else if (ms < 5 * 60000) el.classList.add('warn');
 }
 
@@ -383,6 +410,7 @@ function renderControl() {
   $('#ev-bye').value = state.byePoints ?? 8;
   $('#ev-tables').value = state.tables ?? 8;
   $('#ev-pairing-mins').value = state.pairingMinutes ?? 8;
+  $('#ev-overtime').value = state.overtime ?? 0;
 
   const logo = logoUrl();
   $('#ev-shop').value = state.shopName || '';
@@ -430,6 +458,28 @@ function renderControl() {
   $('#uvs-on').checked = !!state.uvsMode;
   $('#btn-uvs').disabled = !state.uvsMode || cardeActive();
   ['#btn-pair', '#btn-next-round'].forEach(sel => { $(sel).disabled = locked; });
+  // Mirroring UVS: nothing is scored here, so the list is read-only and just
+  // shows what the players are looking at, including who has reported.
+  if (state.uvsMode) {
+    const rows = state.uvsPairings || [];
+    $('#pairing-list').innerHTML = !rows.length
+      ? '<li class="sub">Nothing pulled from UVS yet.</li>'
+      : rows.map(p => `<li>
+          <span class="grow">${p.bye
+            ? `${esc(p.names[0] || '?')} <span class="bye">BYE</span>`
+            : esc(p.names.join('  vs  '))}</span>
+          ${p.table ? `<span class="table-tag">Table ${p.table}</span>` : ''}
+          <span class="sub">${p.done ? (p.winner ? `${esc(p.winner)} won` : 'Reported') : 'Playing'}</span>
+        </li>`).join('');
+    // UVS owns the standings too, so the local team table would only mislead.
+    $('#ctl-standings').innerHTML = (state.uvsStandings || []).map(s => `
+      <li><span class="grow"><b>${s.rank}. ${esc(s.name)}</b><br>
+        <span class="sub">${s.w}-${s.l}${s.d ? `-${s.d}` : ''} &middot; ${s.pts} match pts</span>
+      </span></li>`).join('') || '<li class="sub">Nothing pulled from UVS yet.</li>';
+    renderStats();
+    return;
+  }
+
   $('#pairing-list').innerHTML = !r ? '<li class="sub">No pairings yet.</li>' : r.pairings.map((p, i) => {
     if (p.b === null) return `<li><span class="grow">${esc(teamName(p.a))}</span>
       <span class="bye">BYE &middot; ${p.pa} pts</span></li>`;
@@ -515,102 +565,67 @@ async function importSignups(id) {
   return { name: ev.name, minutes: ev.settings?.round_duration_in_minutes || state.minutes, names };
 }
 
-// ------------------------------------------------------- UVS pairings
+// ------------------------------------------------------------ UVS mirror
 //
-// The locator has a public TV feed keyed on the event id alone -- no round id,
-// no login. `tv/matches/` returns the *current* round, and carries results as
-// players self-report them, so it doubles as a results feed.
+// For 1v1 nights -- Nexus Nights, skirmishes, store events -- UVS does the
+// pairing and the players report their own results, so this app is purely a
+// display and a clock. Nothing is scored here and nothing is pushed back; the
+// pairings and standings are mirrored onto the TV exactly as UVS has them.
 //
-// What it cannot give us is Riftbound game points: `games_won` counts games in
-// the match, not the 8-11 style score this leaderboard ranks on. So we take the
-// pairings, tables and winner from UVS, and the points are still typed in here.
+// The whole feed is public and keyed on the event id alone, which is the one
+// already entered for signup import.
 
-async function fetchUvsRound(id) {
+// The clock hangs off a round object, so mirroring keeps an otherwise empty
+// round around purely to own the timer.
+const bareRound = n => ({ n, pairings: [], endsAt: 0, pausedMs: (state.minutes || 50) * 60000, running: false });
+
+async function fetchUvs(id) {
   const base = apiBase();
-  if (!base) throw new Error('Pulling pairings needs the app to be running from localhost.');
+  if (!base) throw new Error('Reading the UVS event needs the app to be running from localhost.');
   const ev = await fetch(`${base}/api/v2/player/events/${id}/tv/`)
-    .then(r => r.ok ? r.json() : Promise.reject(new Error(`Event ${id} not found`)));
-  const res = await fetch(`${base}/api/v2/player/events/${id}/tv/matches/`);
-  if (!res.ok) throw new Error('That event has no pairings to read yet.');
-  const data = await res.json();
+    .then(r => r.ok ? r.json() : Promise.reject(new Error(`Event ${id} not found.`)));
 
-  // The matches feed is not labelled with a round, so work it out from the round
-  // list: the one in progress if there is one, otherwise the last that exists.
-  // (Every event I could sample had already finished, so the IN_PROGRESS branch
-  // is from the schema rather than from observation.)
+  const [mRes, sRes] = await Promise.all([
+    fetch(`${base}/api/v2/player/events/${id}/tv/matches/`),
+    fetch(`${base}/api/v2/player/events/${id}/tv/standings/`),
+  ]);
+  const matches = mRes.ok ? (await mRes.json()).results || [] : [];
+  const standings = sRes.ok ? (await sRes.json()).results || [] : [];
+
+  // The matches feed carries no round label, so read it off the round list:
+  // the one in progress if there is one, else the last that exists.
   const rounds = (ev.tournament_phases || []).flatMap(p => p.rounds || []);
-  const last = [...rounds].reverse().find(r => r.status === 'IN_PROGRESS') || rounds[rounds.length - 1];
+  const cur = [...rounds].reverse().find(r => r.status === 'IN_PROGRESS') || rounds[rounds.length - 1];
 
   return {
-    round: last?.round_number ?? rounds.length,
-    matches: (data.results || []).map(m => ({
+    name: ev.name,
+    round: cur?.round_number ?? rounds.length,
+    pairings: matches.map(m => ({
       table: m.table_number,
-      // A bye comes back as a single player, and match_is_bye confirms it.
       bye: !!m.match_is_bye || m.players.length < 2,
       names: m.players.map(p => p.tv_display_name),
       winner: m.players.find(p => p.is_winner)?.tv_display_name || null,
       done: m.status === 'COMPLETE',
     })),
+    standings: standings.map(s => ({
+      rank: s.rank,
+      name: s.tv_display_name,
+      w: s.matches_won, l: s.matches_lost, d: s.matches_drawn,
+      pts: s.total_match_points,
+    })),
   };
 }
 
-// A UVS name is matched against team names first, then against player names --
-// shops running 2v2 on the locator either register one account per team or
-// register everyone individually, and this handles both without being told which.
-function teamByName(n) {
-  const k = String(n || '').trim().toLowerCase();
-  if (!k) return null;
-  return state.teams.find(t => t.name.trim().toLowerCase() === k)
-      || state.teams.find(t => t.players.some(id => (player(id)?.name || '').trim().toLowerCase() === k))
-      || null;
-}
-
-// Materialise the UVS round as an ordinary local round. Everything downstream --
-// score entry, tables, the leaderboard, the TV -- then works unchanged.
-function applyUvsRound(feed) {
-  const prev = currentRound();
-  const unmatched = new Set();
-  const pairings = [];
-
-  for (const m of feed.matches) {
-    const ids = m.names.map(n => {
-      const t = teamByName(n);
-      if (!t) unmatched.add(n);
-      return t?.id ?? null;
-    });
-    if (m.bye) {
-      if (ids[0]) pairings.push({ a: ids[0], b: null, winner: null, pa: state.byePoints ?? 8, pb: null, table: null });
-      continue;
-    }
-    const [a, b] = ids;
-    // Both names landing on one team means the mapping is wrong, not that a team
-    // plays itself -- drop it rather than corrupt the standings.
-    if (!a || !b || a === b) continue;
-    pairings.push({
-      a, b, table: m.table ?? null,
-      winner: m.winner ? (teamByName(m.winner)?.id === a ? 'a' : 'b') : null,
-      pa: null, pb: null,
-    });
-  }
-
-  // Refreshing the same round replaces it; a new round number appends. Scores
-  // already typed for a match are kept, since UVS has no idea about them.
-  const keep = {};
-  if (prev) for (const p of prev.pairings) keep[[p.a, p.b].sort().join('|')] = p;
-  for (const p of pairings) {
-    const had = keep[[p.a, p.b].sort().join('|')];
-    if (had) { p.pa = had.pa; p.pb = had.pb; p.winner = p.winner || had.winner; }
-  }
-
-  const round = { n: feed.round, pairings, endsAt: 0, pausedMs: state.minutes * 60000, running: false };
-  if (prev && prev.n === feed.round) {
-    round.endsAt = prev.endsAt; round.pausedMs = prev.pausedMs; round.running = prev.running;
-    state.rounds[state.rounds.length - 1] = round;
-  } else {
-    state.rounds.push(round);
-  }
+function applyUvs(feed) {
+  state.uvsRound = feed.round;
+  state.uvsPairings = feed.pairings;
+  state.uvsStandings = feed.standings;
+  // A new round number gets a fresh clock; refreshing the same one leaves the
+  // clock alone, so a mid-round poll cannot reset the timer on the TV.
+  const r = currentRound();
+  if (!r || r.n !== feed.round) state.rounds.push(bareRound(feed.round));
   save();
-  return { count: pairings.length, unmatched: [...unmatched] };
+  return feed.pairings.length;
 }
 
 // ---------------------------------------------------------------- archive
@@ -707,6 +722,7 @@ if (!isDisplay) {
   $('#ev-bye').onchange = e => { state.byePoints = Math.max(0, +e.target.value || 0); save(); };
   $('#ev-tables').onchange = e => { state.tables = Math.max(1, +e.target.value || 1); save(); };
   $('#ev-pairing-mins').onchange = e => { state.pairingMinutes = Math.max(0, +e.target.value || 0); save(); };
+  $('#ev-overtime').onchange = e => { state.overtime = Math.max(0, +e.target.value || 0); save(); };
 
   // Same shape as #ev-name: skip render() so re-setting .value cannot move the caret.
   $('#ev-shop').oninput = e => { state.shopName = e.target.value; localStorage.setItem(KEY, JSON.stringify(state)); chan.postMessage(state); };
@@ -759,36 +775,32 @@ if (!isDisplay) {
 
   $('#uvs-on').onchange = e => {
     state.uvsMode = e.target.checked;
+    if (!state.uvsMode) { state.uvsPairings = null; state.uvsStandings = null; state.uvsRound = 0; }
     save();
-    if (state.uvsMode) pullUvs();
+    if (state.uvsMode) pullUvs(); else msg('#uvs-msg', 'Back to this app making the pairings.', 'ok');
   };
   $('#btn-uvs').onclick = () => pullUvs();
 
   async function pullUvs() {
     // The id is whatever was used for signup import, so there is nothing to paste.
     const id = state.eventId || $('#ev-id').value.trim().replace(/\D/g, '');
-    if (!id) return msg('#uvs-msg', 'Import the signups on the Setup tab first — that is where the event ID comes from.', 'err');
-    if (!state.teams.length) return msg('#uvs-msg', 'Make the teams first, so pairings have something to attach to.', 'err');
+    if (!id) return msg('#uvs-msg', 'Put the event ID on the Setup tab first — the same one used for Import signups.', 'err');
     msg('#uvs-msg', 'Reading the UVS event page…');
     try {
-      const feed = await fetchUvsRound(id);
-      if (!feed.matches.length) return msg('#uvs-msg', 'No pairings up on UVS yet for this round.', 'err');
-      const { count, unmatched } = applyUvsRound(feed);
-      if (!count) {
-        return msg('#uvs-msg', `Round ${feed.round} read, but none of the names matched a team. Check they are spelled the same here as on UVS.`, 'err');
-      }
-      msg('#uvs-msg', unmatched.length
-        ? `Round ${feed.round}: ${count} match${count === 1 ? '' : 'es'} loaded. Not recognised: ${unmatched.join(', ')}.`
-        : `Round ${feed.round}: ${count} match${count === 1 ? '' : 'es'} loaded from UVS.`,
-        unmatched.length ? 'err' : 'ok');
+      const feed = await fetchUvs(id);
+      const n = applyUvs(feed);
+      state.eventId = id;
+      msg('#uvs-msg', n
+        ? `Round ${feed.round}: showing ${n} match${n === 1 ? '' : 'es'} from "${feed.name}".`
+        : `Connected to "${feed.name}", but UVS has not paired a round yet.`, n ? 'ok' : 'err');
     } catch (err) { msg('#uvs-msg', err.message, 'err'); }
   }
 
-  // While UVS owns the round, poll so self-reported results land without anyone
+  // Players report on their own phones, so poll to pick that up without anyone
   // pressing anything. Quietly -- a failed poll must not stamp on the message line.
   setInterval(() => {
-    if (state.uvsMode && !cardeActive() && state.eventId && state.teams.length) {
-      fetchUvsRound(state.eventId).then(f => f.matches.length && applyUvsRound(f)).catch(() => {});
+    if (state.uvsMode && !cardeActive() && state.eventId) {
+      fetchUvs(state.eventId).then(applyUvs).catch(() => {});
     }
   }, 30000);
 
@@ -859,6 +871,9 @@ if (!isDisplay) {
   };
 
   $('#btn-start').onclick = () => {
+    // Mirroring UVS there may be no round yet, but the clock is the whole point,
+    // so give it one to live on rather than refusing.
+    if (!currentRound() && state.uvsMode) state.rounds.push(bareRound(state.uvsRound || 1));
     const r = currentRound();
     if (!r) return msg('#round-msg', 'Generate pairings first.', 'err');
     r.endsAt = Date.now() + (r.pausedMs ?? state.minutes * 60000);
@@ -1196,6 +1211,7 @@ function autoScroll(ts) {
 // Rows for the TV pairings view: local pairings normally, Carde.io's when it is
 // the one running the event.
 function displayPairings() {
+  if (state.uvsMode) return state.uvsPairings || [];
   const r = currentRound();
   if (r && r.pairings.length) return r.pairings.map(p => ({
     table: p.table,
@@ -1205,12 +1221,23 @@ function displayPairings() {
   return (state.cardePairings || []).map(p => ({ table: p.table, names: p.names, bye: false }));
 }
 
-function displayMode() {
+// Everything finished is the cue to move on to standings, whoever supplies the
+// rows: locally that means both scores in, mirroring UVS it means the players
+// have reported.
+function allIn(rows) {
+  if (state.uvsMode) return rows.length > 0 && rows.every(p => p.done);
   const r = currentRound();
-  if (!r || !r.pairings.length) return (state.cardePairings || []).length ? 'pairings' : 'standings';
+  return !!r && r.pairings.length > 0 && r.pairings.every(reported);
+}
+
+function displayMode() {
+  const rows = displayPairings();
+  const r = currentRound();
+  if (!rows.length) return 'standings';
+  if (!r) return 'pairings';           // mirroring, before the clock exists
   const mins = state.pairingMinutes ?? 8;
   if (mins <= 0) return 'standings';
-  if (r.pairings.every(reported)) return 'standings';
+  if (allIn(rows)) return 'standings';
 
   const total = (state.minutes || 50) * 60000;
   const left = r.running ? Math.max(0, r.endsAt - Date.now()) : (r.pausedMs ?? total);
