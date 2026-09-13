@@ -544,6 +544,81 @@ console.log('\nUVS mirror:');
   check('nothing is ever pushed back to UVS', !/player\/events[^`]*`,\s*\{\s*method/.test(src));
 }
 
+// --- 9a. 2v2 via UVS captains ---------------------------------------------
+// At check-in the shop drops the team-mate from the locator event, so UVS pairs
+// captains. The captain's name is the only handle back to a team.
+console.log('\nUVS team mode (2v2 captains):');
+{
+  const { ctx: tctx, nodes: tnodes } = makeCtx('?display=1');
+  vm.runInContext(SRC, tctx);
+  const trun = expr => vm.runInContext(expr, tctx);
+
+  trun(`state = blank(); state.uvsMode = true; state.uvsUse = 'teams';
+    state.players = [
+      {id:'p1',name:'Ann',legend:''},  {id:'p2',name:'Al',legend:''},
+      {id:'p3',name:'Bo',legend:''},   {id:'p4',name:'Bea',legend:''},
+      {id:'p5',name:'Cy',legend:''},   {id:'p6',name:'Cass',legend:''}];
+    state.teams = [
+      {id:'t1',name:'Rift Raiders',players:['p1','p2'],custom:true,captain:'p1'},
+      {id:'t2',name:'Bo and Friends',players:['p3','p4'],custom:true,captain:'p3'},
+      {id:'t3',name:'Cy Squad',players:['p5','p6'],custom:true,captain:'p5'}];`);
+
+  check('captainOf falls back for teams made before captains existed',
+    trun(`captainOf({players:['p3','p4']})`) === 'p3');
+  check('a captain name finds its team', trun(`teamByCaptain('Ann').id`) === 't1');
+  check('captain matching tolerates case and padding', trun(`teamByCaptain('  ann ').id`) === 't1');
+  check('a NON-captain team-mate must not match', trun(`teamByCaptain('Al')`) === null);
+
+  const FEED = round => ({
+    name: '2v2 Night', round,
+    pairings: [
+      { table: 1, bye: false, names: ['Ann', 'Bo'], winner: 'Ann', done: true },
+      { table: null, bye: true, names: ['Cy'], winner: null, done: true },
+    ],
+    standings: [],
+  });
+  trun(`applyUvs(${JSON.stringify(FEED(1))});`);
+
+  check('captain pairing becomes a real team round', trun('currentRound().pairings.length') === 2);
+  check('it pairs the teams, not the captains',
+    trun(`currentRound().pairings[0].a + '/' + currentRound().pairings[0].b`) === 't1/t2');
+  check('the winning captain marks the winning team', trun(`currentRound().pairings[0].winner`) === 'a');
+  check('points stay empty for the organiser', trun('currentRound().pairings[0].pa') === null);
+  check('the table number carries over', trun('currentRound().pairings[0].table') === 1);
+  check("a captain's bye becomes the team's bye", trun(`currentRound().pairings[1].a`) === 't3');
+  check('the bye is awarded its points', trun('currentRound().pairings[1].pa') === 8);
+  check('team mode does not mirror raw rows', trun('state.uvsPairings') === null);
+
+  // The TV must show team names, never the captain's name.
+  trun(`state.pairingMinutes = 99; renderDisplay();`);
+  check('the TV shows the team name', tnodes['#dsp-pairings'].innerHTML.includes('Rift Raiders'));
+  check('the TV does not show the captain name', !tnodes['#dsp-pairings'].innerHTML.includes('>Ann<'));
+
+  // UVS has no points, so a refresh must not wipe what was typed.
+  trun(`currentRound().pairings[0].pa = 11; currentRound().pairings[0].pb = 8;
+        applyUvs(${JSON.stringify(FEED(1))});`);
+  check('refreshing keeps one round', trun('state.rounds.length') === 1);
+  check('typed points survive a refresh', trun('currentRound().pairings[0].pa') === 11);
+  check('the match then counts as reported', trun(`reported(currentRound().pairings[0])`) === true);
+  check('the leaderboard picks the points up', trun(`standings()[0].gp`) === 11);
+
+  // A new round appends rather than replacing.
+  trun(`applyUvs(${JSON.stringify(FEED(2))});`);
+  check('a new round is appended', trun('state.rounds.length') === 2);
+
+  // Unknown captains are reported back, and unmappable rows dropped.
+  trun(`state.rounds = []; var r = applyUvs({ round: 1, standings: [], pairings: [
+    { table: 1, bye: false, names: ['Nobody','Ann'], winner: null, done: false },
+    { table: 2, bye: false, names: ['Ann','Al'],     winner: null, done: false } ] });`);
+  check('an unknown captain is named back', trun(`r.unmatched.join(',')`) === 'Nobody,Al');
+  check('rows that cannot be mapped are dropped', trun('currentRound().pairings.length') === 0);
+
+  // Carde.io is out of the way for now.
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  check('the Carde.io tab is hidden', /data-tab="carde"\s+hidden/.test(html));
+  check('but carde.js is still shipped', html.includes('carde.js'));
+}
+
 // --- 9b. overtime clock ----------------------------------------------------
 console.log('\novertime clock:');
 {

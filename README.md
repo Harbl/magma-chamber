@@ -166,7 +166,7 @@ event is archived.
 
 ---
 
-## The three ways a night can run
+## The ways a night can run
 
 | mode | pairings | scoring | reporting |
 |---|---|---|---|
@@ -174,15 +174,38 @@ event is archived.
 | **UVS mirror** | UVS | none — UVS's own | players, on UVS |
 | **Carde.io** | Carde.io | this app, game points | pushed to Carde.io |
 
-Only one can own a round, and either external mode disables *Generate pairings*
-and *Finish round & continue* — buttons and handlers both.
+Only one can own a round, and UVS mode disables *Generate pairings* and
+*Finish round & continue* — buttons and handlers both.
 
-## UVS mirror mode
+`uvsMirroring()` is the predicate separating the two UVS modes. It gates every
+display branch, so team mode falls straight through to ordinary local-round
+rendering and the TV shows team names rather than captains.
+
+## Carde.io is hidden, not deleted
+
+The tab carries `hidden`, and `carde.js` still ships and still works. Nothing was
+removed, because the evidence is strong but not conclusive:
+
+- **Marymoor Games has no Carde.io record at all** — `/api/play/establishments/?name=`
+  searches all 1331 stores and returns nothing — yet it runs locator events weekly.
+  A shop can therefore run Riftbound OP with zero Carde presence.
+- Zulu's has one unverified record, with no events under it.
+- Riftbound is absent from the public 97-game `masterData` list.
+- The locator calls `api.carde.io` **only** for `/api/core/users/` and
+  `/api/core/gameUsers/` — accounts, not events.
+
+So Carde is the shared login and store directory; the locator is the event
+pipeline. Jake has corrected a premature "Riftbound isn't on Carde" call twice, so
+this stays behind a `hidden` attribute rather than being ripped out, until the
+shop confirms where they actually type results. Full trail in the
+`reference-cardeio-api` memory.
+
+## UVS 1v1 — mirror
 
 For **1v1** nights — Nexus Nights, skirmishes, store events — UVS does the
 pairing and the players report their own results. There is nothing for this app
-to score or push, so it is purely a display and a clock. Tick **Show the UVS
-event** on the Round tab.
+to score or push, so it is purely a display and a clock. Tick **Use the UVS event
+page** and leave it on *1v1 — just show it*.
 
 Nothing is ever written back to UVS. Every request is a GET.
 
@@ -216,17 +239,31 @@ number starts a fresh one.
 `displayMode()` and `allIn()` treat "everyone has reported" as the cue to swap to
 standings, whichever source is supplying the rows.
 
-### Why there is no team mapping
+## UVS 2v2 — matched by captain
 
-An earlier version resolved UVS names onto local teams and materialised a real
-scored round. That was removed: **UVS has no 2v2 reporting at all.** Shops running
-2v2 on it register a team captain and drop the second player so the captain can be
-paired and reported, then re-enter results into Carde.io by hand. Mirroring is the
-honest model for what the platform can actually do.
-
-It has no team concept whatsoever — 25 sampled events named "2v2" were every one
+UVS has **no 2v2 support**: 25 sampled events named "2v2" were every one
 `is_team_event: false` with `maximum_number_of_players_in_match: 2`, and no match
 ever held more than two players.
+
+The shop's workaround is the one the app now builds on. **At check-in, each team
+nominates a captain and the team-mate is dropped from the locator event.** UVS
+then pairs captains, one per team, and the night still counts as store activity.
+
+Pick *2v2 — match to teams by captain*. Each team gets a **captain** dropdown on
+the Teams tab, defaulting to the first player. `teamByCaptain()` resolves a UVS
+name against captains **only** — a team-mate's name deliberately does not match,
+since they are not the one registered.
+
+`applyUvsTeams()` then turns that into an ordinary scored round between the two
+*teams*, which is why the leaderboard, table numbers, winner highlighting and
+points entry all work untouched. The captain's win becomes the team's win.
+
+Unmatched captain names are listed back in the message line. A pairing whose two
+names resolve to the same team, or to nothing, is dropped rather than guessed.
+Refreshing keeps points already typed, since UVS has no idea about them.
+
+Switching between 1v1 and 2v2 clears `state.rounds` — a round pulled in one mode
+means something different in the other.
 
 ## Overtime clock
 
