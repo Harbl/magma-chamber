@@ -41,6 +41,7 @@ let state = load();
 function blank() {
   return {
     name: '', minutes: 50, byePoints: 8, tables: 8, pairingMinutes: 8,
+    shopName: '', brandMode: 'text',   // venue half of the TV lockup; logo itself is in LOGO_KEY
     players: [],            // {id, name, legend}
     teams: [],              // {id, name, players:[id,id], custom:bool}
     rounds: [],             // {n, pairings:[{a, b|null, winner, pa, pb}], endsAt, pausedMs, running}
@@ -71,7 +72,67 @@ function save(broadcast = true) {
   render();
 }
 
-chan.onmessage = e => { state = e.data; render(); };
+chan.onmessage = e => { if (!e.data.logo) state = e.data; render(); };
+
+// ---------------------------------------------------------------- shop logo
+//
+// The logo lives in its own localStorage key rather than in `state`, because
+// `state` is re-serialised and broadcast on every keystroke -- pushing a few
+// hundred KB of data URL through that each time is needless. Both windows share
+// the same origin, so the display reads the key itself and is only told to
+// re-render, by a {logo:true} ping.
+const LOGO_KEY = KEY + '-logo';
+const logoUrl = () => { try { return localStorage.getItem(LOGO_KEY) || ''; } catch { return ''; } };
+
+// Branding belongs to the venue, not the event, so it has to be carried across
+// the blank() rebuilds done by archiving and Reset everything. The logo itself
+// needs no help -- it is in its own key.
+const venue = () => ({ shopName: state.shopName, brandMode: state.brandMode });
+
+function setLogo(url) {
+  try {
+    if (url) localStorage.setItem(LOGO_KEY, url); else localStorage.removeItem(LOGO_KEY);
+  } catch { return false; }   // quota: still too big even after shrinking
+  chan.postMessage({ logo: true });
+  render();
+  return true;
+}
+
+// Anything larger than this is redrawn before being stored. 512px covers the
+// header box even on a 4K panel, and keeps a photo-heavy logo inside quota.
+const LOGO_MAX = 512;
+
+function shrinkImage(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error('unreadable'));
+    fr.onload = () => {
+      // SVG is already resolution-independent and has no pixel size to shrink.
+      if (file.type === 'image/svg+xml') return resolve(fr.result);
+      const img = new Image();
+      img.onerror = () => reject(new Error('not an image'));
+      img.onload = () => {
+        const scale = Math.min(1, LOGO_MAX / Math.max(img.width, img.height));
+        if (scale === 1) return resolve(fr.result);
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/png'));   // PNG so a transparent logo stays transparent
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+// Assigning .src re-decodes the image, and render() runs on every keystroke, so
+// only touch it when it actually changed.
+function setImg(sel, url) {
+  const el = $(sel);
+  if (el.getAttribute('src') !== url) el.setAttribute('src', url);
+  el.hidden = !url;
+}
 
 // ---------------------------------------------------------------- lookups
 
@@ -231,7 +292,20 @@ function playerChip(id) {
   return `<span>${mark}${esc(p.name)}</span>`;
 }
 
+// Venue half of the lockup. A logo wins when that mode is picked and one is
+// stored; otherwise the shop name. With neither, the whole venue half drops out
+// -- including the "x", which would have nothing left to join.
+function renderBrand() {
+  const url = state.brandMode === 'logo' ? logoUrl() : '';
+  const name = url ? '' : (state.shopName || '');
+  setImg('#dsp-logo', url);
+  $('#dsp-shop').textContent = name;
+  $('#dsp-shop').hidden = !name;
+  $('#dsp-x').hidden = !url && !name;
+}
+
 function renderDisplay() {
+  renderBrand();
   const r = currentRound();
   const mode = displayMode();
   if (mode !== lastMode) { scrollAt = 0; atBottom = false; holdUntil = 0; }
@@ -308,6 +382,14 @@ function renderControl() {
   $('#ev-bye').value = state.byePoints ?? 8;
   $('#ev-tables').value = state.tables ?? 8;
   $('#ev-pairing-mins').value = state.pairingMinutes ?? 8;
+
+  const logo = logoUrl();
+  $('#ev-shop').value = state.shopName || '';
+  $('#brand-logo').checked = state.brandMode === 'logo';
+  $('#brand-text').checked = state.brandMode !== 'logo';
+  $('#btn-logo-clear').disabled = !logo;
+  setImg('#logo-img', logo);
+  $('#logo-preview').hidden = !logo;
   $('#player-count').textContent = state.players.length ? `(${state.players.length})` : '';
   $('#archive-count').textContent = state.archive.length ? `(${state.archive.length})` : '';
 
@@ -452,7 +534,7 @@ function finishEvent() {
       teamB: p.b === null ? null : teamName(p.b), pointsB: p.pb,
     }))),
   });
-  Object.assign(state, blank(), { archive: state.archive, minutes: state.minutes });
+  Object.assign(state, blank(), { archive: state.archive, minutes: state.minutes, ...venue() });
   save();
   download(`riftbound-${new Date().toISOString().slice(0, 10)}.json`,
     JSON.stringify(state.archive[0], null, 2), 'application/json');
@@ -523,6 +605,36 @@ if (!isDisplay) {
   $('#ev-bye').onchange = e => { state.byePoints = Math.max(0, +e.target.value || 0); save(); };
   $('#ev-tables').onchange = e => { state.tables = Math.max(1, +e.target.value || 1); save(); };
   $('#ev-pairing-mins').onchange = e => { state.pairingMinutes = Math.max(0, +e.target.value || 0); save(); };
+
+  // Same shape as #ev-name: skip render() so re-setting .value cannot move the caret.
+  $('#ev-shop').oninput = e => { state.shopName = e.target.value; localStorage.setItem(KEY, JSON.stringify(state)); chan.postMessage(state); };
+  $('#brand-text').onchange = () => { state.brandMode = 'text'; save(); };
+  $('#brand-logo').onchange = () => {
+    state.brandMode = 'logo';
+    save();
+    if (!logoUrl()) msg('#brand-msg', 'No logo yet — choose an image below.', 'err');
+  };
+
+  $('#btn-logo').onclick = () => $('#logo-input').click();
+  $('#btn-logo-clear').onclick = () => {
+    setLogo('');
+    // Nothing left to show in logo mode, so fall back rather than going blank.
+    if (state.brandMode === 'logo') { state.brandMode = 'text'; save(); }
+    msg('#brand-msg', 'Logo removed.', 'ok');
+  };
+  $('#logo-input').onchange = async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    msg('#brand-msg', 'Reading image…');
+    try {
+      const url = await shrinkImage(file);
+      if (!setLogo(url)) return msg('#brand-msg', 'That image is too large to store. Try a smaller file.', 'err');
+      state.brandMode = 'logo';
+      save();
+      msg('#brand-msg', 'Logo set. It is resized to fit the TV automatically.', 'ok');
+    } catch { msg('#brand-msg', 'That file could not be read as an image.', 'err'); }
+  };
 
   $('#btn-import').onclick = async () => {
     const id = $('#ev-id').value.trim().replace(/\D/g, '');
@@ -828,7 +940,7 @@ if (!isDisplay) {
   $('#btn-finish').onclick = () => { if (confirm('Archive this event and start fresh?')) finishEvent(); };
   $('#btn-reset').onclick = () => {
     if (!confirm('Erase the current event? Archived events are kept.')) return;
-    Object.assign(state, blank(), { archive: state.archive });
+    Object.assign(state, blank(), { archive: state.archive, ...venue() });
     save();
   };
 

@@ -14,10 +14,13 @@
 <!-- ============ TV DISPLAY ============ -->
 <main id="display" hidden>
   <header class="dsp-head">
-    <!-- Collab lockup: venue over the X, app underneath. Change the shop name here. -->
+    <!-- Collab lockup: venue over the X, app underneath. The venue half is set on
+         the Setup tab (shop name or uploaded logo), so one copy serves any shop.
+         With neither set, the shop line and the X hide and only the app name shows. -->
     <div class="dsp-title">
-      <p class="dsp-shop">Zulu's Guild Hall</p>
-      <div class="collab-x" aria-hidden="true">&#10005;</div>
+      <img id="dsp-logo" class="dsp-logo" alt="" hidden>
+      <p id="dsp-shop" class="dsp-shop" hidden></p>
+      <div id="dsp-x" class="collab-x" aria-hidden="true" hidden>&#10005;</div>
       <p class="dsp-app">Magma Chamber</p>
       <p id="dsp-round">Waiting to start</p>
     </div>
@@ -72,6 +75,27 @@
     <label>Show pairings on the TV for (minutes, 0 = never)
       <input id="ev-pairing-mins" type="number" min="0" max="60" value="8">
     </label>
+
+    <h2>Shop branding</h2>
+    <p class="hint">Shown on the TV above the Magma Chamber name. Set once and it
+      sticks on this computer &mdash; it is not cleared between events.</p>
+    <div class="pick">
+      <label><input type="radio" name="brand" id="brand-text"> Shop name</label>
+      <label><input type="radio" name="brand" id="brand-logo"> Logo image</label>
+    </div>
+    <label>Shop name
+      <input id="ev-shop" placeholder="Your Game Shop">
+    </label>
+    <div class="row">
+      <button id="btn-logo" class="ghost">Choose logo image&hellip;</button>
+      <button id="btn-logo-clear" class="ghost">Remove logo</button>
+      <input id="logo-input" type="file" accept="image/*" hidden>
+    </div>
+    <p id="brand-msg" class="msg"></p>
+    <div id="logo-preview" class="logo-preview" hidden>
+      <img id="logo-img" alt="Logo preview">
+      <p>Preview at TV proportions</p>
+    </div>
 
     <h2>Import players</h2>
     <p class="hint">Paste the event ID from the locator URL &mdash;

@@ -110,6 +110,36 @@ Players who have a Legend assigned show its **card art** beside their name rathe
 than the Legend's name — far easier to read across a room. Art is pulled from
 Riot's CDN as a 160px crop, so it costs about 6KB per Legend instead of 1.1MB.
 
+### Shop branding
+
+The TV lockup is venue over "x" over app name, and the venue half is set per
+install on the **Setup** tab rather than edited into the markup — several shops
+run their own copy, so nothing about a specific venue is baked into the build.
+
+Pick **Shop name** for plain text or **Logo image** to upload one. With neither
+set, the shop line and the "x" both drop out and the TV just reads *Magma
+Chamber*. Picking logo mode and then deleting the logo falls back to the name
+rather than leaving a hole.
+
+Uploads are normalised twice over, because a shop will hand you whatever file it
+happens to have:
+
+- **On the way in** — anything over 512px on the long edge is redrawn on a canvas
+  at that size and re-encoded as PNG, so transparency survives. SVG passes
+  through untouched; it has no pixel size to shrink and scales by itself.
+- **On the way out** — `.dsp-logo` is a fixed box (`height` in `vh`, capped
+  `max-width`) with `object-fit: contain`, so a wide banner and a square badge
+  both sit correctly and neither can push the header around.
+
+The data URL is kept in its **own localStorage key** (`magma-chamber-logo`), not
+in `state`. `state` is re-serialised and broadcast on every keystroke, and pushing
+a few hundred KB through that each time is pointless; the display window reads the
+key directly and only needs a `{logo:true}` ping to re-render.
+
+`shopName` and `brandMode` *are* in `state`, so they sync the usual way — but both
+`finishEvent()` and *Reset everything* rebuild state from `blank()`, so they get
+carried across by `venue()`. Branding belongs to the venue, not the event.
+
 ### Sizing the TV text
 
 Layout is in `vw`/`vh` units, so it renders identically at 1080p and 4K — only

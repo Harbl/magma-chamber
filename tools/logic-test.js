@@ -28,9 +28,13 @@ const CARDE_SRC = fs.readFileSync(path.join(__dirname, '..', 'carde.js'), 'utf8'
 function makeNode() {
   return {
     innerHTML: '', textContent: '', hidden: false, value: '', className: '',
-    dataset: {}, files: [],
+    dataset: {}, files: [], attrs: {},
     style: { setProperty() {} },
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
+    getAttribute(k) { return this.attrs[k] ?? null; },
+    setAttribute(k, v) { this.attrs[k] = String(v); },
+    getContext: () => ({ drawImage() {} }),          // enough <canvas> for the logo shrinker
+    toDataURL: () => 'data:image/png;base64,SHRUNK',
     addEventListener() {}, insertBefore() {}, appendChild() {}, click() {},
     closest() { return this; }, querySelector() { return this; }, querySelectorAll: () => [],
     getBoundingClientRect: () => ({ top: 0, height: 10 }),
@@ -59,7 +63,22 @@ function makeCtx(search = '') {
     setInterval: () => 0, setTimeout: () => 0, clearTimeout: () => {},
     requestAnimationFrame: () => 0,
     addEventListener() {},
-    URL, Blob: class {}, URLSearchParams,
+    URLSearchParams, Blob: class {},
+    // Node has URL.createObjectURL but it demands a real Blob, so stub both.
+    URL: { createObjectURL: () => 'blob:stub', revokeObjectURL() {} },
+    // shrinkImage() assigns its handlers before kicking either of these off, so
+    // firing synchronously is safe and keeps the checks ordinary.
+    FileReader: class {
+      readAsDataURL(file) { this.result = file.data; this.onload(); }
+    },
+    Image: class {
+      set src(v) {
+        const m = /#(\d+)x(\d+)$/.exec(v);      // dimensions ride along in the fake data URL
+        this.width = m ? +m[1] : 10;
+        this.height = m ? +m[2] : 10;
+        this.onload();
+      }
+    },
   };
   ctx.window = ctx;
   vm.createContext(ctx);
@@ -383,7 +402,66 @@ console.log('\nCarde.io lockout:');
   check('Generate pairings re-enabled', lnodes['#btn-pair'].disabled === false);
 }
 
-// --- 8. the [hidden] override is still in place ---------------------------
+// --- 8. shop branding is per-install, not baked into the build -------------
+console.log('\nshop branding:');
+{
+  const { ctx: bctx, nodes: bnodes } = makeCtx('?display=1');
+  vm.runInContext(SRC, bctx);
+  const brun = expr => vm.runInContext(expr, bctx);
+  const shop = () => bnodes['#dsp-shop'], logo = () => bnodes['#dsp-logo'], x = () => bnodes['#dsp-x'];
+
+  brun(`state = blank(); state.shopName = "Zulu's Guild Hall"; renderBrand();`);
+  check('shop name shows in text mode', shop().textContent === "Zulu's Guild Hall");
+  check('logo stays hidden in text mode', logo().hidden === true);
+  check('collab x appears with a name', x().hidden === false);
+
+  brun(`state.shopName = ''; renderBrand();`);
+  check('no branding means no shop line', shop().hidden === true);
+  check('no branding means no collab x', x().hidden === true);
+
+  brun(`setLogo('data:image/png;base64,AAA'); state.brandMode = 'logo'; renderBrand();`);
+  check('logo shows in logo mode', logo().hidden === false);
+  check('logo src is the stored image', logo().getAttribute('src') === 'data:image/png;base64,AAA');
+  check('collab x returns with a logo', x().hidden === false);
+
+  // Picking logo mode and then deleting the logo must not leave the TV blank.
+  brun(`setLogo(''); state.shopName = 'Fallback Games'; renderBrand();`);
+  check('logo mode with no logo falls back to the name', shop().textContent === 'Fallback Games');
+  check('the stale logo element is hidden', logo().hidden === true);
+
+  // The data URL must not ride along in the state that is broadcast per keystroke.
+  brun(`setLogo('data:image/png;base64,BBB'); save(false);`);
+  check('logo is kept out of the broadcast state',
+    !bctx.localStorage.getItem('magma-chamber').includes('base64,BBB'));
+  check('logo lives in its own key',
+    bctx.localStorage.getItem('magma-chamber-logo') === 'data:image/png;base64,BBB');
+
+  // Branding is a venue setting: archiving and Reset rebuild state from blank(),
+  // and must not take the shop's identity with them.
+  brun(`state.shopName = 'Keeps Its Name'; state.brandMode = 'logo';
+    state.players = [{id:'a',name:'A',legend:''},{id:'b',name:'B',legend:''}];
+    state.teams = [{id:'t1',name:'T1',players:['a','b'],custom:false}];
+    finishEvent();`);
+  check('shop name survives archiving', brun('state.shopName') === 'Keeps Its Name');
+  check('brand mode survives archiving', brun('state.brandMode') === 'logo');
+  check('the event itself was cleared', brun('state.teams.length') === 0);
+  check('logo survives archiving', brun('logoUrl()') === 'data:image/png;base64,BBB');
+
+  brun(`Object.assign(state, blank(), { archive: state.archive, ...venue() });`);
+  check('shop name survives Reset everything', brun('state.shopName') === 'Keeps Its Name');
+
+  // Oversized uploads are normalised on the way in, not just squeezed by CSS.
+  const shrink = (type, data) =>
+    vm.runInContext('shrinkImage', bctx)({ type, data });
+  pending.push(shrink('image/png', 'data:image/png;base64,RAW#2000x1200').then(url =>
+    check('an oversized raster is redrawn', url === 'data:image/png;base64,SHRUNK')));
+  pending.push(shrink('image/png', 'data:image/png;base64,RAW#320x200').then(url =>
+    check('a small raster is left alone', url === 'data:image/png;base64,RAW#320x200')));
+  pending.push(shrink('image/svg+xml', 'data:image/svg+xml;base64,VEC').then(url =>
+    check('svg passes through unscaled', url === 'data:image/svg+xml;base64,VEC')));
+}
+
+// --- 9. the [hidden] override is still in place ---------------------------
 // #display is display:flex and the standings/pairings lists are display:grid.
 // An author display value beats [hidden]'s UA display:none, so without an explicit
 // reset none of them hide and the TV view renders on top of the control panel.
@@ -392,10 +470,31 @@ const css = fs.readFileSync(path.join(__dirname, '..', 'app.css'), 'utf8');
 check('[hidden] forced to display:none',
   /\[hidden\]\s*\{[^}]*display:\s*none\s*!important/.test(css));
 
-const toggled = ['#display', '#control', '#dsp-pairings', '#dsp-standings'];
+// A shop can upload any resolution, so the header box is fixed and the image is
+// fitted into it. Without these the lockup is at the mercy of the upload.
+check('.dsp-logo is fitted rather than stretched',
+  /\.dsp-logo\s*\{[^}]*object-fit:\s*contain/.test(css));
+check('.dsp-logo is width-capped',
+  /\.dsp-logo\s*\{[^}]*max-width:/.test(css));
+check('brand radios escape the blanket input width',
+  /\.pick input\s*\{[^}]*width:\s*auto/.test(css));
+
+const toggled = ['#display', '#control', '#dsp-pairings', '#dsp-standings', '#dsp-shop', '#dsp-x'];
 const js = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
 for (const sel of toggled)
   check(`${sel} is toggled via .hidden`, js.includes(`$('${sel}').hidden`));
+
+// --- 10. the markup actually backs the wiring ------------------------------
+// A typo'd id fails silently in the browser, and a stray </div> once moved a
+// whole panel outside #control. Both are cheap to catch from here.
+console.log('\nmarkup wiring:');
+const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const ids = new Set([...html.matchAll(/id="([^"]+)"/g)].map(m => m[1]));
+const missing = [...new Set([...js.matchAll(/\$\('#([\w-]+)'\)/g)].map(m => m[1]))]
+  .filter(id => !ids.has(id));
+check('every $(#id) in app.js exists in index.html', missing.length === 0, missing.join(', '));
+check('<div> tags balance',
+  (html.match(/<div\b/g) || []).length === (html.match(/<\/div>/g) || []).length);
 
 Promise.all(pending).then(() => {
   console.log(failures ? `\n${failures} FAILURE(S)\n` : '\nAll checks passed.\n');
