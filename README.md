@@ -1,10 +1,20 @@
-# Magma Chamber
+# Hextech Ledger
 
-A TV scoreboard, round timer and Swiss pairing system for Riftbound 2v2 nights.
+A TV scoreboard, round timer and Swiss pairing system for Riftbound nights — 1v1
+mirrored from the Riftbound event page, or 2v2 and unofficial nights run here.
 Static page, no build step, no dependencies.
 
-Teams are fixed pairs for the night. An odd number of teams means one whole team
-takes a bye, and no team gets a second bye until every team has had one.
+> **Renamed from Magma Chamber (2026-09-13)**, once it stopped being 2v2-only.
+> The localStorage keys changed with it (`magma-chamber*` → `hextech-ledger*`),
+> so app.js copies the old keys across once on first load and leaves the
+> originals in place as a safety net — a shop mid-season keeps its archive, its
+> logo and its TV text size. Tests cover the copy, including that it never
+> overwrites a newer save. The GitHub repos and the folder on disk still carry
+> the old name; only the product did.
+
+In 2v2, teams are fixed pairs for the night. An odd number of teams means one
+whole team takes a bye, and no team gets a second bye until every team has had
+one.
 
 ## Scoring
 
@@ -23,7 +33,7 @@ mid-event. Defaults to 8.
 
 ## Testing on Windows
 
-Double-click **`Magma Chamber (Windows).bat`**. It starts a local server and
+Double-click **`Hextech Ledger (Windows).bat`**. It starts a local server and
 opens the app. Closing the console window stops it. Node.js is the only
 requirement.
 
@@ -38,7 +48,7 @@ window across.
 > which covers Mac and Windows for someone who has never used a terminal.
 > `MAC-SETUP.md` here is the Mac-only original it grew out of.
 
-Copy this folder to the Mac and double-click **`Magma Chamber (macOS).command`**.
+Copy this folder to the Mac and double-click **`Hextech Ledger (macOS).command`**.
 It starts a local server and opens the app. Keep the Terminal window open; closing
 it stops the app.
 
@@ -59,7 +69,7 @@ none of them. Python is deliberately last: `/usr/bin/python3` is a shim that pop
 an Xcode install prompt when the command line tools are missing.
 
 If macOS refuses to run it, the file lost its executable bit in transit. In
-Terminal: `chmod +x "Magma Chamber (macOS).command"`. On first run, Gatekeeper may
+Terminal: `chmod +x "Hextech Ledger (macOS).command"`. On first run, Gatekeeper may
 need **right-click → Open** rather than a double-click.
 
 ### Giving it a Dock icon
@@ -118,8 +128,8 @@ install on the **Settings** tab rather than edited into the markup — several s
 run their own copy, so nothing about a specific venue is baked into the build.
 
 Pick **Shop name** for plain text or **Logo image** to upload one. With neither
-set, the shop line and the "x" both drop out and the TV just reads *Magma
-Chamber*. Picking logo mode and then deleting the logo falls back to the name
+set, the shop line and the "x" both drop out and the TV just reads *Hextech
+Ledger*. Picking logo mode and then deleting the logo falls back to the name
 rather than leaving a hole.
 
 Uploads are normalised twice over, because a shop will hand you whatever file it
@@ -132,7 +142,7 @@ happens to have:
   `max-width`) with `object-fit: contain`, so a wide banner and a square badge
   both sit correctly and neither can push the header around.
 
-The data URL is kept in its **own localStorage key** (`magma-chamber-logo`), not
+The data URL is kept in its **own localStorage key** (`hextech-ledger-logo`), not
 in `state`. `state` is re-serialised and broadcast on every keystroke, and pushing
 a few hundred KB through that each time is pointless; the display window reads the
 key directly and only needs a `{logo:true}` ping to re-render.
@@ -160,22 +170,68 @@ cycles the rest through.
 Each player can be given a Legend on the Setup tab. It shows beside their name on
 the TV, colour-coded by domain, and feeds the meta breakdown under **Stats**.
 
-**Stats** leads with **Player records** — a lifetime row per player built from the
-archive: matches, W-L-D, win rate, nights played, nights won, and every legend
-they have brought, most-played first. `playerHistory()` accumulates it from the
-archived standings, giving both team-mates their team's result, the same rule the
-Results tab uses. Names are the only key that exists across events, so they are
-matched trimmed and case-insensitively; `'?'` placeholders are skipped.
+**Stats splits into two sub-tabs, because the two things live on different
+time-scales.** Legend meta is only meaningful *per night* — what people brought
+that week — while a player's record only means anything *across* nights. Mixing
+them in one list was the thing to avoid.
+
+**Events** lists every archived night; opening one shows its **top 8** and the
+**legend meta for that night alone**. One night is open at a time and `openEvent`
+is view state, never saved.
+
+**Players** is the lifetime table: matches, W-L-D, win rate, nights played,
+nights won, and every legend they bring, most-played first. `playerHistory()`
+accumulates it from the archived standings, giving both team-mates their team's
+result, the same rule the Results tab uses. Names are the only key that exists
+across events, so they are matched trimmed and case-insensitively; `'?'`
+placeholders are skipped. The bar is matches played, filled by the share won.
 
 It only counts **archived** nights, so a night that was never finished contributes
 nothing, and a mirrored 1v1 night contributes nothing either — UVS owns that
 scoring and none of it is kept here. *Export player records (CSV)* writes the
 same table.
 
-Below that sit the legend meta breakdown and every saved event. Backups live on
-**Settings**: JSON (re-importable) and CSV (opens in Excel). Browser storage can
-be wiped by clearing site data, so the exports are the durable copy — the app
-downloads one automatically each time an event is archived.
+### The meta chart
+
+Per night, domain share is a **donut** and legend counts are **ranked bars**. That
+split is deliberate:
+
+- **Domains are part-to-whole with at most seven categories**, which is what a
+  donut is actually good at. Every segment is named in the key beside it, with a
+  2px surface gap between segments and the night's legend count in the hole.
+- **Legends are magnitude**, often with a dozen entries — so they get one hue and
+  a length, not a dozen more colours. The domain chip beside each name carries
+  identity; the bar carries the number.
+
+A legend with two domains counts under its **first** one, matching what
+`legendColor()` already does elsewhere.
+
+The `--d-*` domain steps were validated with the `dataviz` skill's checker
+against the dark surface: PASS on chroma, CVD separation across *all* pairs (not
+just adjacent), normal-vision separation and contrast. They sit deliberately
+above the dark **lightness band** — this is read across a shop floor, and the
+separation and contrast the band exists to protect are verified by the other
+checks. The game fixes which hue means which domain, so the hues keep their
+identity and were stepped up for a dark screen rather than re-chosen. A test
+holds `DOMAIN_COLOR` in app.js and the `--d-*` variables in app.css in step,
+since SVG presentation attributes cannot take `var()` and the table therefore
+has to exist twice.
+
+### Where files go
+
+**Settings → Where files are saved** takes a folder via `showDirectoryPicker()`,
+and every archive and export is written there instead of Downloads. A directory
+handle cannot be JSON-serialised, so it lives in **IndexedDB**, not localStorage.
+
+Three things can go wrong and all of them fall back to an ordinary download: no
+File System Access API (Firefox, Safari), permission not granted — it is asked
+per session, which is fine since every caller is a button press — or a folder
+that has since moved. Tests cover all three.
+
+Backups themselves live on **Settings**: JSON (re-importable) and CSV (opens in
+Excel). Browser storage can be wiped by clearing site data, so the exports are
+the durable copy — the app writes one automatically each time an event is
+archived.
 
 ---
 
@@ -196,9 +252,10 @@ A **Manual** checkbox on the splash — and on Setup, to change your mind later 
 says this is an unofficial night: there is no locator event to read from, so the
 app runs the whole thing itself. It is what a shop uses for an ad-hoc side event.
 
-For 2v2 it only hides the signup import, since 2v2 already pairs locally. For 1v1
-it is the real switch: the mirror goes off and the app pairs, tables and scores
-the night.
+**It is a 1v1 idea only.** 2v2 pairs locally either way, so the only thing a
+toggle could change there is whether the signup import is offered, which is not
+worth a switch. `setMode()` forces `manual = false` for 2v2 rather than trusting
+the caller, and the Setup checkbox is `data-only="1v1"`.
 
 **Manual 1v1 reuses the team machinery with one player per team.** `syncSoloTeams()`
 gives every player a team of one, named after them, just before pairing. That is
@@ -360,8 +417,8 @@ pairings/standings switch, which should not care about overtime.
 
 | | branch | contains |
 |---|---|---|
-| **magma-chamber-private** | `main` | everything — this README, the tests, `worker/` |
-| **magma-chamber** (public) | `main` | the app only, with a plain-English README for shop staff |
+| **hextech-ledger-private** | `main` | everything — this README, the tests, `worker/` |
+| **hextech-ledger** (public) | `main` | the app only, with a plain-English README for shop staff |
 
 `main` tracks `private/main`, so a bare `git push` updates the private repo.
 The public repo is fed from a local `public` branch that sits one commit ahead of
@@ -400,6 +457,31 @@ Run the scoring and pairing tests:
 ```bash
 node tools/logic-test.js
 ```
+
+## Look and feel
+
+Piltover hardware rather than an app. **Every colour in the build comes from the
+`:root` block at the top of `app.css`** — nothing downstream hardcodes a hex — so
+re-theming is one block.
+
+| role | token | value |
+|---|---|---|
+| base / plate | `--bg`, `--bg-2`, `--panel` | `#0f141c`, `#131822`, `#18202c` |
+| primary, live things | `--cyan`, `--cyan-soft` | `#00e5ff`, `#38bdf8` |
+| secondary, framing | `--brass`, `--brass-hi` | `#ca8a04`, `#e0a92a` |
+| status | `--win`, `--warn`, `--loss` | `#10b981`, `#f59e0b`, `#ef4444` |
+
+Status colours are **reserved**: they mean won / running out / lost, and are
+never reused as a category colour.
+
+Corners are **chamfered, not rounded** — `--r: 2px` for the radius and a
+`clip-path` cut for the machined edge. Row separation is a thin brass thread
+(control panel) or a glowing cyan seam (TV), rather than a gap alone. Section
+headers sit on a brass rule that threads out toward one edge instead of a flat
+line across.
+
+On the TV, **rank 1 is the only cyan row**; everything else is brass or neutral,
+so the leader reads instantly from the far wall.
 
 ## Layout
 

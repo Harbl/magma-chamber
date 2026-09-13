@@ -1,4 +1,4 @@
-# Magma Chamber — Mac Setup
+# Hextech Ledger — Mac Setup
 
 Plain-English instructions for getting this running on the shop MacBook.
 You do not need to install anything. There is no account to make.
@@ -9,12 +9,12 @@ You do not need to install anything. There is no account to make.
 
 ### 1. Get the folder onto the Mac
 
-Go to **https://github.com/Harbl/magma-chamber**
+Go to **https://github.com/Harbl/hextech-ledger**
 
 Click the green **Code** button, then **Download ZIP**.
 
 Open your **Downloads** folder and double-click the ZIP. That makes a normal
-folder called `magma-chamber-main`.
+folder called `hextech-ledger-main`.
 
 Drag that folder onto your **Desktop** so it is easy to find.
 
@@ -24,7 +24,7 @@ Because you downloaded this from the internet, macOS wants you to confirm it onc
 
 Open the folder. Find the file called:
 
-**`Magma Chamber (macOS).command`**
+**`Hextech Ledger (macOS).command`**
 
 **Right-click it** (or hold Control and click), then choose **Open**.
 
@@ -42,7 +42,7 @@ If instead you get a message about *permission denied*, see
 
 ### 1. Start it
 
-Double-click **`Magma Chamber (macOS).command`**.
+Double-click **`Hextech Ledger (macOS).command`**.
 
 A black text window opens. That is normal — it is the app running.
 **Leave that window open.** Closing it turns the app off.
@@ -96,7 +96,7 @@ The file lost a setting when it was unzipped. Fix it once:
    ```
    chmod +x 
    ```
-3. Drag the `Magma Chamber (macOS).command` file into the Terminal window.
+3. Drag the `Hextech Ledger (macOS).command` file into the Terminal window.
    It fills in the location for you.
 4. Press **Return**. Nothing appears to happen — that means it worked.
 5. Go back and double-click the file again.
@@ -104,7 +104,7 @@ The file lost a setting when it was unzipped. Fix it once:
 **The page says it can't connect**
 
 The black text window probably got closed. Double-click
-`Magma Chamber (macOS).command` again.
+`Hextech Ledger (macOS).command` again.
 
 **"Import signups" says it can't find the event**
 

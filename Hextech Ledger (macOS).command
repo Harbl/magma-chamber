@@ -1,5 +1,5 @@
 #!/bin/bash
-# Double-click to run Magma Chamber on a Mac.
+# Double-click to run Hextech Ledger on a Mac.
 #
 # Serving from localhost is what makes signup import work without any proxy:
 # the Riftbound locator API allowlists "localhost", but not hosted origins.
@@ -12,14 +12,14 @@ URL="http://localhost:$PORT"
 
 # Already running from an earlier double-click? Just reopen the window.
 if curl -s -o /dev/null --max-time 2 "$URL"; then
-  echo "Magma Chamber is already running."
+  echo "Hextech Ledger is already running."
   open "$URL"
   exit 0
 fi
 
 open_soon() { sleep 1; open "$URL"; }
 
-echo "Starting Magma Chamber at $URL"
+echo "Starting Hextech Ledger at $URL"
 echo "Keep this window open. Closing it stops the app."
 echo
 

@@ -56,7 +56,7 @@ function makeNode() {
 }
 
 function makeCtx(search = '') {
-  const store = {}, nodes = {}, lists = {};
+  const store = {}, nodes = {}, lists = {}, created = [];
   const node = sel => (nodes[sel] ||= makeNode());
   // querySelectorAll returning [] for everything makes any check on tab or
   // setting visibility vacuous, so tests can register real nodes per selector.
@@ -70,7 +70,9 @@ function makeCtx(search = '') {
     },
     BroadcastChannel: class { postMessage() {} set onmessage(_) {} },
     document: {
-      querySelector: node, querySelectorAll: listFor, createElement: () => makeNode(),
+      querySelector: node, querySelectorAll: listFor,
+      // Kept so a test can see what download() actually produced.
+      createElement: () => { const n = makeNode(); created.push(n); return n; },
       body: makeNode(),
     },
     location: { search, hostname: 'localhost' },
@@ -98,7 +100,7 @@ function makeCtx(search = '') {
   };
   ctx.window = ctx;
   vm.createContext(ctx);
-  return { ctx, nodes, lists };
+  return { ctx, nodes, lists, created };
 }
 
 const { ctx } = makeCtx('');
@@ -355,6 +357,141 @@ console.log('\nlifetime player records:');
   check('no archive means no records', hrun('state.archive = []; playerHistory().length') === 0);
 }
 
+// --- 7bb. the rename must not cost a shop its archive ----------------------
+console.log('\nrename migration:');
+{
+  // A shop that ran Magma Chamber has its season in the old keys. Opening the
+  // renamed app has to find it there.
+  const { ctx: rctx } = makeCtx('');
+  rctx.localStorage.setItem('magma-chamber', JSON.stringify({ mode: '2v2', name: 'Old Night', archive: [{ date: 1 }] }));
+  rctx.localStorage.setItem('magma-chamber-logo', 'data:image/png;base64,OLD');
+  rctx.localStorage.setItem('magma-chamber-tvscale', '1.25');
+  vm.runInContext(SRC, rctx);
+  const rrun = expr => vm.runInContext(expr, rctx);
+
+  check('the event comes across', rrun('state.name') === 'Old Night');
+  check('so does the archive', rrun('state.archive.length') === 1);
+  check('and the shop logo', rrun('logoUrl()') === 'data:image/png;base64,OLD');
+  check('and the TV text size',
+    rctx.localStorage.getItem('hextech-ledger-tvscale') === '1.25');
+  check('the old copy is left alone as a safety net',
+    rctx.localStorage.getItem('magma-chamber') !== null);
+
+  // Migration must never overwrite a real new-name save with a stale old one.
+  const { ctx: r2 } = makeCtx('');
+  r2.localStorage.setItem('magma-chamber', JSON.stringify({ name: 'Stale' }));
+  r2.localStorage.setItem('hextech-ledger', JSON.stringify({ name: 'Current' }));
+  vm.runInContext(SRC, r2);
+  check('an existing save wins over the old one',
+    vm.runInContext('state.name', r2) === 'Current');
+
+  const jsSrc = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  check('nothing else still writes the old name',
+    !/magma/i.test(jsSrc.replace(/'magma-chamber' \+ suffix|Magma Chamber\./g, '')));
+}
+
+// --- 7c. per-event legend meta and its donut -------------------------------
+console.log('\nevent meta and donut:');
+{
+  const { ctx: dctx } = makeCtx('');
+  vm.runInContext(SRC, dctx);
+  const drun = expr => vm.runInContext(expr, dctx);
+  drun(`legends = [
+    {name:'Jinx - Loose Cannon', domains:['Fury','Chaos'], image:''},
+    {name:'Viktor - Machine Herald', domains:['Mind'], image:''},
+    {name:'Lux - Lady of Luminosity', domains:['Mind','Order'], image:''},
+  ];
+  const ev = { date: 1, name: 'Week 1', standings: [
+    { place:1, name:'T1', players:['A','B'], legends:['Jinx - Loose Cannon','Viktor - Machine Herald'], w:2,l:0,d:0,gp:20 },
+    { place:2, name:'T2', players:['C','D'], legends:['Jinx - Loose Cannon',null], w:1,l:1,d:0,gp:14 },
+  ]};
+  state.archive = [ev];`);
+  const meta = drun('eventMeta(state.archive[0])');
+
+  check('legends are counted for that night only', meta.total === 3);
+  check('the most-played legend leads', meta.legendRows[0][0] === 'Jinx - Loose Cannon' && meta.legendRows[0][1] === 2);
+  check('a missing legend is not counted as one', meta.legendRows.length === 2);
+  check('domains come off the legend, primary first',
+    JSON.stringify(meta.domainRows) === JSON.stringify([['Fury', 2], ['Mind', 1]]));
+
+  const svg = drun('donut(eventMeta(state.archive[0]).domainRows, eventMeta(state.archive[0]).total)');
+  check('the donut draws one arc per domain', (svg.match(/<path /g) || []).length === 2);
+  check('the arcs use the domain colours', svg.includes('#ff5147') && svg.includes('#41b8f5'));
+  check('the total sits in the hole', /class="donut-num">3</.test(svg));
+  check('it is labelled for a screen reader', /aria-label="Domain split: Fury 2, Mind 1"/.test(svg));
+
+  // One domain would otherwise be a zero-length arc with round caps, i.e. nothing.
+  const solo = drun(`donut([['Calm', 4]], 4)`);
+  check('a single domain draws a full ring', solo.includes('<circle') && !solo.includes('<path'));
+
+  // The expander is view state: it must never reach saved state.
+  drun(`openEvent = 0;`);
+  check('which event is open is not saved',
+    drun(`JSON.parse(JSON.stringify(state)).openEvent`) === undefined);
+
+  const panel = drun('eventPanel(state.archive[0], 0)');
+  check('the panel leads with the top places', panel.includes('Top 2') && panel.indexOf('T1') < panel.indexOf('T2'));
+  check('the panel carries that night\'s meta', panel.includes('donut'));
+
+  // The two colour tables are written in two files and must not drift apart.
+  const cssSrc = fs.readFileSync(path.join(__dirname, '..', 'app.css'), 'utf8');
+  const domains = drun('Object.entries(DOMAIN_COLOR)');
+  const drift = domains.filter(([name, hex]) =>
+    !new RegExp(`--d-${name.toLowerCase()}:\\s*${hex}\\s*;`).test(cssSrc));
+  check('app.css and DOMAIN_COLOR agree on every domain', drift.length === 0,
+    drift.map(d => d[0]).join(', '));
+}
+
+// --- 7d. where exports are written -----------------------------------------
+console.log('\nsave location:');
+{
+  // No folder chosen (and no File System Access API at all): every export still
+  // has to produce a file, or a shop silently loses its backups.
+  const { ctx: fctx, created: fmade } = makeCtx('');
+  vm.runInContext(SRC, fctx);
+  pending.push(vm.runInContext(`download('x.csv', 'a,b', 'text/csv')`, fctx).then(() => {
+    const a = fmade.find(n => n.download === 'x.csv');
+    check('with no folder set it still downloads', !!a);
+    check('the file keeps its name', a && a.href === 'blob:stub');
+    check('the picker is reported as unavailable', vm.runInContext('hasFS()', fctx) === false);
+  }));
+
+  // A folder that has been chosen and allowed is written to directly instead.
+  const { ctx: wctx, created: wmade } = makeCtx('');
+  const written = [];
+  const handle = {
+    name: 'Tournaments',
+    queryPermission: async () => 'granted',
+    getFileHandle: async name => ({
+      createWritable: async () => ({
+        write: blob => written.push([name, blob]),
+        close: async () => {},
+      }),
+    }),
+  };
+  wctx.showDirectoryPicker = async () => handle;
+  wctx.indexedDB = null;                    // store unavailable; hand it the live handle
+  vm.runInContext(SRC, wctx);
+  Object.assign(wctx, { chosen: handle });
+  vm.runInContext('saveDir = chosen', wctx);
+  pending.push(vm.runInContext(`download('night.json', '{}', 'application/json')`, wctx).then(() => {
+    check('a chosen folder is written to', written.length === 1 && written[0][0] === 'night.json');
+    check('and the browser download is skipped',
+      !wmade.some(n => n.download === 'night.json'));
+  }));
+
+  // Permission is per-session; if it is refused the file must not vanish.
+  const { ctx: pctx, created: pmade } = makeCtx('');
+  pctx.indexedDB = null;
+  vm.runInContext(SRC, pctx);
+  Object.assign(pctx, { denied: { name: 'Nope', queryPermission: async () => 'prompt', requestPermission: async () => 'denied' } });
+  vm.runInContext('saveDir = denied', pctx);
+  pending.push(vm.runInContext(`download('fallback.csv', 'a', 'text/csv')`, pctx).then(() => {
+    check('a refused folder falls back to a download',
+      pmade.some(n => n.download === 'fallback.csv'));
+  }));
+}
+
 // --- 8. shop branding is per-install, not baked into the build -------------
 console.log('\nshop branding:');
 {
@@ -385,9 +522,9 @@ console.log('\nshop branding:');
   // The data URL must not ride along in the state that is broadcast per keystroke.
   brun(`setLogo('data:image/png;base64,BBB'); save(false);`);
   check('logo is kept out of the broadcast state',
-    !bctx.localStorage.getItem('magma-chamber').includes('base64,BBB'));
+    !bctx.localStorage.getItem('hextech-ledger').includes('base64,BBB'));
   check('logo lives in its own key',
-    bctx.localStorage.getItem('magma-chamber-logo') === 'data:image/png;base64,BBB');
+    bctx.localStorage.getItem('hextech-ledger-logo') === 'data:image/png;base64,BBB');
 
   // Branding is a venue setting: archiving and Reset rebuild state from blank(),
   // and must not take the shop's identity with them.
@@ -553,7 +690,7 @@ console.log('\nround results list:');
     .split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(s => s && s !== '.');
   const absent = shell.filter(f => !fs.existsSync(path.join(__dirname, '..', f)));
   check('every pre-cached shell file exists', absent.length === 0, absent.join(', '));
-  check('the cache name was bumped past v2', /magma-chamber-v([3-9]|\d\d)/.test(sw));
+  check('the cache name was bumped past v2', /hextech-ledger-v([1-9]|\d\d)/.test(sw));
 }
 
 // --- 9c. splash screen and mode gating ------------------------------------
@@ -574,8 +711,8 @@ console.log('\nsplash and mode gating:');
   };
   const tabs = ['setup', 'teams', 'round', 'results', 'standings', 'stats', 'settings'].map(tab);
   // [0] 2v2-only, [1] local-only (both 2v2 and manual 1v1), [2] the UVS mirror,
-  // [3] anything that reads the official event page.
-  const onlies = [only('2v2'), only('local'), only('mirror'), only('official')];
+  // [3] anything reading the official event page, [4] 1v1-only (the manual toggle).
+  const onlies = [only('2v2'), only('local'), only('mirror'), only('official'), only('1v1')];
   mlists['.tabs button[data-tab]'] = tabs;
   mlists['[data-only]'] = onlies;
   mlists['section[data-panel]'] = [];
@@ -617,13 +754,20 @@ console.log('\nsplash and mode gating:');
   check('manual hides anything reading the official event', onlies[3].hidden === true);
   check('the mode line says it is manual', mnodes['#mode-name'].textContent === 'manual 1v1');
 
-  mrun(`setMode('2v2', true);`);
-  check('manual 2v2 keeps its own tabs', shown() === 'setup,teams,round,results,standings,stats,settings');
-  check('manual 2v2 still scores locally', onlies[1].hidden === false);
-  check('manual 2v2 hides the signup import', onlies[3].hidden === true);
+  check('the manual toggle is offered in 1v1', onlies[4].hidden === false);
+  check('the switch button names the other mode', mnodes['#btn-change-mode'].textContent === 'Switch to 2v2');
 
-  mrun(`setMode('2v2', false);`);
-  check('going back to official restores the import', onlies[3].hidden === false);
+  // 2v2 pairs locally either way, so a manual toggle there could only change
+  // whether the import is offered -- not worth a switch, and asking for it must
+  // not turn it on.
+  mrun(`setMode('2v2', true);`);
+  check('2v2 refuses to go manual', mrun('state.manual') === false);
+  check('2v2 keeps its own tabs', shown() === 'setup,teams,round,results,standings,stats,settings');
+  check('2v2 still scores locally', onlies[1].hidden === false);
+  check('2v2 keeps the signup import', onlies[3].hidden === false);
+  check('the manual toggle is hidden outside 1v1', onlies[4].hidden === true);
+  check('the switch button names it the other way round',
+    mnodes['#btn-change-mode'].textContent === 'Switch to 1v1');
   check('manual survives a reload', mrun(`setMode('1v1', true); load().manual`) === true);
 
   // Each player becomes a team of one, so pairing, scoring and reporting are the
@@ -652,7 +796,7 @@ console.log('\nsplash and mode gating:');
   check('picking a mode leaves the settings detour', mrun(`setMode('2v2'); settingsOnly`) === false);
   check('the Back button is hidden once a mode exists', mnodes['#btn-back-splash'].hidden === true);
   check('shop settings is not a saved state',
-    mrun(`JSON.parse(localStorage.getItem('magma-chamber')).settingsOnly`) === undefined);
+    mrun(`JSON.parse(localStorage.getItem('hextech-ledger')).settingsOnly`) === undefined);
 
   // Switching must not leave a half-finished round of the other kind behind.
   mrun(`setMode('1v1');
@@ -676,7 +820,7 @@ console.log('\nsplash and mode gating:');
   // The mode has to survive a reload, so it must reach localStorage.
   mrun(`setMode('1v1');`);
   check('the mode is part of saved state',
-    mrun(`JSON.parse(localStorage.getItem('magma-chamber')).mode`) === '1v1');
+    mrun(`JSON.parse(localStorage.getItem('hextech-ledger')).mode`) === '1v1');
   check('a reload comes back in the same mode', mrun(`load().mode`) === '1v1');
 
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');

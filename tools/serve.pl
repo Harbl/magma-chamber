@@ -34,7 +34,7 @@ my $server = IO::Socket::INET->new(
   ReuseAddr => 1,
 ) or die "Could not start on port $port: $!\n";
 
-print "\n  Magma Chamber running at  http://localhost:$port\n\n";
+print "\n  Hextech Ledger running at  http://localhost:$port\n\n";
 print "  Signup import works here because localhost is allowlisted by the API.\n";
 print "  Press Ctrl+C to stop.\n\n";
 

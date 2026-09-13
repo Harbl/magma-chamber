@@ -1,13 +1,13 @@
 {
-  "name": "Magma Chamber",
-  "short_name": "Magma Chamber",
-  "description": "Riftbound 2v2 team scoreboard, round timer and standings.",
+  "name": "Hextech Ledger",
+  "short_name": "Hextech Ledger",
+  "description": "Riftbound event scoreboard, round timer, pairings and standings.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
   "orientation": "landscape",
-  "background_color": "#080b14",
-  "theme_color": "#080b14",
+  "background_color": "#0f141c",
+  "theme_color": "#0f141c",
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]

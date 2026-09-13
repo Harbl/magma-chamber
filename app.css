@@ -1,29 +1,57 @@
-/* Riftbound 2v2 Scoreboard
-   Display view is sized in vw/vh so it stays readable from the far end of a long table. */
+/* Hextech Ledger
+   Display view is sized in vw/vh so it stays readable from the far end of a long
+   table. Piltover hardware rather than an app: deep slate plate, arcane cyan
+   running through it, brass framing the edges, corners cut rather than rounded.
+
+   Colour is set entirely by the variables below and every rule downstream uses
+   them, so re-theming is one block. */
 
 :root {
-  --bg: #080b14;
-  --bg-2: #0e1422;
-  --panel: #141c2e;
-  --line: #24304a;
-  --ink: #e8edf7;
-  --dim: #8d9ab5;
-  --gold: #c9a227;
-  --gold-hi: #f0cf6a;
-  --magma: #f2833c;
-  --rift: #5ad2e6;
+  --bg: #0f141c;          /* deep slate, holds up on a washed-out shop TV */
+  --bg-2: #131822;
+  --panel: #18202c;       /* machined plate */
+  --line: #2a3546;        /* hairline seam */
+  --ink: #e6edf7;
+  --dim: #8fa0b8;
 
-  /* Riftbound domains */
-  --d-fury: #d63a34;
-  --d-calm: #4aa863;
-  --d-mind: #3b82d6;
-  --d-body: #e08b2e;
-  --d-chaos: #8b5cd6;
-  --d-order: #d9bb35;
-  --d-colorless: #7c8798;
+  --cyan: #00e5ff;        /* primary: live things -- the round, the app's own name */
+  --cyan-soft: #38bdf8;   /* primary action fills */
+  --brass: #ca8a04;       /* secondary: framing, headers, rank numbers */
+  --brass-hi: #e0a92a;
+
+  /* Status. Reserved -- never reused as a category colour. */
+  --win: #10b981;
+  --warn: #f59e0b;
+  --loss: #ef4444;
+
+  /* Corners are chamfered, not rounded. One value so it stays consistent. */
+  --cut: 9px;
+  --r: 2px;
+
+  /* Riftbound domains. The game fixes which hue means which domain, so these
+     keep their identity and are stepped up for a dark screen rather than being
+     re-chosen: validated PASS on chroma, CVD separation across all pairs,
+     normal-vision separation and contrast against #131822. They sit above the
+     dark lightness band deliberately -- this is read across a room, and what
+     that band protects is covered by the other checks. Colour is never the only
+     encoding here: every segment and bar carries its own label. */
+  --d-fury: #ff5147;
+  --d-body: #ffa033;
+  --d-order: #f5e663;
+  --d-calm: #35d07f;
+  --d-mind: #41b8f5;
+  --d-chaos: #b06bff;
+  --d-colorless: #94a3b8;   /* the neutral slot, the way "Other" is neutral */
 }
 
 * { box-sizing: border-box; }
+
+/* Machined corner: two opposite corners cut flat. clip-path takes the border
+   with it at the cut, which is the intended hardware look. */
+.cut {
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)),
+                     calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+}
 
 /* An author `display` value outranks the [hidden] attribute's UA `display:none`.
    Several elements here are toggled via .hidden AND carry their own display rule
@@ -54,7 +82,7 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(120vw 70vh at 50% -20%, #16233d 0%, transparent 65%),
+    radial-gradient(120vw 70vh at 50% -20%, #17293c 0%, transparent 65%),
     linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
 }
 
@@ -73,7 +101,7 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   position: absolute;
   left: 3vw; right: 3vw; bottom: -2px;
   height: 2px;
-  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  background: linear-gradient(90deg, transparent, var(--brass), transparent);
 }
 
 .dsp-title { min-width: 0; flex: none; text-align: center; }
@@ -83,7 +111,7 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   font-size: calc(2vw * var(--tv));
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: var(--gold-hi);
+  color: var(--brass-hi);
   white-space: nowrap;
 }
 
@@ -109,8 +137,8 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   margin: 0.7vh 0;
   font-size: calc(1.9vw * var(--tv));
   line-height: 1;
-  color: var(--gold-hi);
-  text-shadow: 0 0 1.4vw rgba(240, 207, 106, 0.55);
+  color: var(--brass-hi);
+  text-shadow: 0 0 1.4vw rgba(224, 169, 42, 0.5);
 }
 
 .collab-x::before,
@@ -119,18 +147,18 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   height: 2px;
   flex: 1;
   min-width: 2vw;
-  background: linear-gradient(90deg, transparent, var(--gold) 85%);
+  background: linear-gradient(90deg, transparent, var(--brass) 85%);
 }
 
-.collab-x::after { background: linear-gradient(90deg, var(--gold) 15%, transparent); }
+.collab-x::after { background: linear-gradient(90deg, var(--brass) 15%, transparent); }
 
 .dsp-app {
   margin: 0;
   font-size: calc(2vw * var(--tv));
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: var(--magma);
-  text-shadow: 0 0 1.6vw rgba(242, 131, 60, 0.4);
+  color: var(--cyan);
+  text-shadow: 0 0 1.6vw rgba(0, 229, 255, 0.45);
   white-space: nowrap;
 }
 
@@ -155,15 +183,15 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
   color: var(--ink);
-  text-shadow: 0 0 40px rgba(90, 210, 230, 0.25);
+  text-shadow: 0 0 40px rgba(0, 229, 255, 0.3);
 }
 
-.timer.warn  { color: #f0b429; text-shadow: 0 0 40px rgba(240, 180, 41, 0.4); }
-.timer.crit  { color: #ff5a4d; text-shadow: 0 0 46px rgba(255, 90, 77, 0.5); animation: pulse 1s ease-in-out infinite; }
-.timer.done  { color: #ff5a4d; animation: pulse 0.7s ease-in-out infinite; }
+.timer.warn  { color: var(--warn); text-shadow: 0 0 40px rgba(245, 158, 11, 0.45); }
+.timer.crit  { color: var(--loss); text-shadow: 0 0 46px rgba(239, 68, 68, 0.5); animation: pulse 1s ease-in-out infinite; }
+.timer.done  { color: var(--loss); animation: pulse 0.7s ease-in-out infinite; }
 /* Overtime: hard red the moment the round clock runs out, so it reads as a
    different thing from the last minute of normal time rather than more of it. */
-.timer.overtime { color: #ff2d20; text-shadow: 0 0 50px rgba(255, 45, 32, 0.6); animation: pulse 1.4s ease-in-out infinite; }
+.timer.overtime { color: var(--loss); text-shadow: 0 0 50px rgba(239, 68, 68, 0.75); animation: pulse 1.4s ease-in-out infinite; }
 .timer.paused { opacity: 0.45; }
 
 @keyframes pulse { 50% { opacity: 0.45; } }
@@ -187,18 +215,19 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   align-items: center;
   gap: 1.4vw;
   padding: 1vh 1.6vw;
-  background: linear-gradient(90deg, var(--panel) 0%, rgba(20, 28, 46, 0.45) 100%);
+  background: linear-gradient(90deg, var(--panel) 0%, rgba(24, 32, 44, 0.35) 100%);
   border: 1px solid var(--line);
   border-left: 0.5vw solid var(--rank-color, var(--line));
-  border-radius: 0.5vw;
+  border-radius: var(--r);
+  clip-path: polygon(0.9vw 0, 100% 0, 100% calc(100% - 0.9vw), calc(100% - 0.9vw) 100%, 0 100%, 0 0.9vw);
 }
 
-.standings li.top { background: linear-gradient(90deg, #1d2740 0%, rgba(29, 39, 64, 0.4) 100%); }
+.standings li.top { background: linear-gradient(90deg, #1c2838 0%, rgba(28, 40, 56, 0.35) 100%); }
 
 .st-rank {
   font-size: calc(2.8vw * var(--tv));
   font-weight: 800;
-  color: var(--gold);
+  color: var(--brass);
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
@@ -235,7 +264,7 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
 .legend-art {
   width: calc(2.6vw * var(--tv));
   height: calc(2.6vw * var(--tv));
-  border-radius: 0.4vw;
+  border-radius: var(--r);
   object-fit: cover;
   flex: none;
   border: 2px solid var(--line);
@@ -252,7 +281,7 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
 .st-points {
   font-size: calc(3.4vw * var(--tv));
   font-weight: 800;
-  color: var(--gold-hi);
+  color: var(--brass-hi);
   font-variant-numeric: tabular-nums;
   min-width: 5vw;
   text-align: right;
@@ -281,16 +310,17 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   align-items: center;
   gap: 2vw;
   padding: 1.4vh 1.6vw;
-  background: linear-gradient(90deg, var(--panel) 0%, rgba(20, 28, 46, 0.45) 100%);
+  background: linear-gradient(90deg, var(--panel) 0%, rgba(24, 32, 44, 0.35) 100%);
   border: 1px solid var(--line);
-  border-left: 0.5vw solid var(--gold);
-  border-radius: 0.5vw;
+  border-left: 0.5vw solid var(--brass);
+  border-radius: var(--r);
+  clip-path: polygon(0.9vw 0, 100% 0, 100% calc(100% - 0.9vw), calc(100% - 0.9vw) 100%, 0 100%, 0 0.9vw);
 }
 
 .pr-table {
   font-size: calc(3.2vw * var(--tv));
   font-weight: 800;
-  color: var(--gold-hi);
+  color: var(--brass-hi);
   text-align: center;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -322,7 +352,7 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
 
 .pr-vs {
   font-size: calc(1.4vw * var(--tv));
-  color: var(--gold);
+  color: var(--brass);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -332,7 +362,7 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
 
 .pr-bye-tag {
   font-size: calc(1.6vw * var(--tv));
-  color: var(--gold);
+  color: var(--brass);
   font-weight: 700;
   letter-spacing: 0.2em;
 }
@@ -343,15 +373,15 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   bottom: 3vh;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(8, 11, 20, 0.92);
-  border: 1px solid var(--gold);
-  color: var(--gold-hi);
+  background: rgba(15, 20, 28, 0.94);
+  border: 1px solid var(--brass);
+  color: var(--brass-hi);
   font-size: 1.4vw;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 1vh 2vw;
-  border-radius: 0.6vw;
+  border-radius: var(--r);
   opacity: 0;
   transition: opacity 0.25s;
   pointer-events: none;
@@ -386,22 +416,22 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   background: var(--panel);
   color: var(--dim);
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--r);
   padding: 9px 15px;
   font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
-.tabs button.on { background: var(--gold); border-color: var(--gold); color: #1a1405; }
-.tabs button:hover:not(.on) { color: var(--ink); border-color: var(--gold); }
+.tabs button.on { background: var(--brass); border-color: var(--brass); color: #1a1405; }
+.tabs button:hover:not(.on) { color: var(--ink); border-color: var(--brass); }
 #open-display { margin-left: auto; }
 
 h2 {
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.18em;
-  color: var(--gold);
+  color: var(--brass);
   margin: 30px 0 10px;
   padding-bottom: 6px;
   border-bottom: 1px solid var(--line);
@@ -414,13 +444,13 @@ input, select, textarea {
   background: var(--bg-2);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--r);
   padding: 10px 12px;
   font: inherit;
   margin-top: 5px;
 }
 
-input:focus, select:focus { outline: 2px solid var(--rift); outline-offset: -1px; }
+input:focus, select:focus { outline: 2px solid var(--cyan-soft); outline-offset: -1px; }
 
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
 .row input, .row select { flex: 1; min-width: 140px; margin-top: 0; }
@@ -429,7 +459,7 @@ input:focus, select:focus { outline: 2px solid var(--rift); outline-offset: -1px
    so they need explicit sizing back. */
 .pick { display: flex; gap: 20px; margin-bottom: 12px; }
 .pick label { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--ink); font-size: 14px; cursor: pointer; }
-.pick input { width: auto; flex: none; margin: 0; accent-color: var(--magma); }
+.pick input { width: auto; flex: none; margin: 0; accent-color: var(--cyan); }
 
 /* ---------------- SPLASH ---------------- */
 
@@ -440,7 +470,7 @@ input:focus, select:focus { outline: 2px solid var(--rift); outline-offset: -1px
   justify-content: center;
   padding: 24px;
   background:
-    radial-gradient(90vw 60vh at 50% -10%, #16233d 0%, transparent 65%),
+    radial-gradient(90vw 60vh at 50% -10%, #17293c 0%, transparent 65%),
     linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
 }
 
@@ -450,8 +480,8 @@ input:focus, select:focus { outline: 2px solid var(--rift); outline-offset: -1px
   margin: 8px 0 2px;
   font-size: 26px;
   letter-spacing: 0.01em;
-  color: var(--magma);
-  text-shadow: 0 0 28px rgba(242, 131, 60, 0.35);
+  color: var(--cyan);
+  text-shadow: 0 0 28px rgba(0, 229, 255, 0.3);
 }
 .splash-ask { margin: 0 0 18px; font-size: 14px; color: var(--dim); }
 
@@ -467,19 +497,19 @@ input:focus, select:focus { outline: 2px solid var(--rift); outline-offset: -1px
   background: var(--panel);
   color: var(--ink);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--r);
   cursor: pointer;
   /* Buttons are nowrap by default, which would size these cards to their whole
      sentence and push the page sideways. */
   white-space: normal;
   transition: border-color 0.15s, transform 0.15s;
 }
-.splash-card:hover { border-color: var(--gold); transform: translateY(-2px); filter: none; }
+.splash-card:hover { border-color: var(--brass); transform: translateY(-2px); filter: none; }
 .splash-card b {
   display: block;
   font-size: 19px;
   margin-bottom: 5px;
-  color: var(--gold-hi);
+  color: var(--brass-hi);
   letter-spacing: 0.02em;
 }
 .splash-card span { display: block; font-size: 12px; line-height: 1.5; color: var(--dim); font-weight: 400; }
@@ -494,33 +524,33 @@ input:focus, select:focus { outline: 2px solid var(--rift); outline-offset: -1px
   font-weight: 600;
   padding: 7px 14px;
 }
-.splash-mini:hover { color: var(--ink); border-color: var(--gold); filter: none; }
+.splash-mini:hover { color: var(--ink); border-color: var(--brass); filter: none; }
 .splash-note { margin: 16px 0 0; font-size: 12px; color: var(--dim); }
 
 /* Legend names on the lifetime records list, kept off the name column. */
 .list li .legends { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 45%; }
 .list li .legends .legend-chip { width: 10px; height: 10px; }
 
-#mode-badge { color: var(--gold-hi); font-weight: 700; }
+#mode-badge { color: var(--brass-hi); font-weight: 700; }
 
 /* Reporting list: colour-coded so the eye can run down it while typing into
    another window, which is the whole job this screen exists for. */
 .res-tag { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
-.res-row.win  .res-tag { color: #4aa863; }
-.res-row.loss .res-tag { color: #ff6b5e; }
-.res-row.draw .res-tag { color: var(--gold-hi); }
+.res-row.win  .res-tag { color: var(--win); }
+.res-row.loss .res-tag { color: var(--loss); }
+.res-row.draw .res-tag { color: var(--brass-hi); }
 .res-row.pending .res-tag { color: var(--dim); font-weight: 600; text-transform: none; letter-spacing: 0; }
 
 /* Single checkbox + its wording on one line; same escape from `input { width: 100% }`. */
 .chk { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: var(--ink); font-size: 14px; cursor: pointer; }
-.chk input { width: auto; flex: none; margin: 0; accent-color: var(--magma); }
+.chk input { width: auto; flex: none; margin: 0; accent-color: var(--cyan); }
 
 /* Previewed on the TV's own background, since that is where it ends up. */
 .logo-preview {
   margin: 0 0 12px;
   padding: 12px;
   border: 1px dashed var(--line);
-  border-radius: 8px;
+  border-radius: var(--r);
   background: var(--bg-2);
   text-align: center;
 }
@@ -528,10 +558,10 @@ input:focus, select:focus { outline: 2px solid var(--rift); outline-offset: -1px
 .logo-preview p { margin: 8px 0 0; color: var(--dim); font-size: 12px; }
 
 button {
-  background: var(--rift);
+  background: var(--cyan-soft);
   color: #04222a;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--r);
   padding: 10px 16px;
   font: inherit;
   font-weight: 700;
@@ -541,17 +571,17 @@ button {
 
 button:hover { filter: brightness(1.12); }
 button.ghost { background: var(--panel); color: var(--ink); border: 1px solid var(--line); }
-button.warn { background: var(--gold); color: #1a1405; }
-button.danger { background: #a8322a; color: #fff; }
+button.warn { background: var(--brass); color: #1a1405; }
+button.danger { background: #b0322c; color: #fff; }
 button.sm { padding: 5px 10px; font-size: 13px; }
 
 .hint { color: var(--dim); font-size: 13px; margin: 0 0 10px; }
-.hint code { background: var(--bg-2); padding: 2px 6px; border-radius: 4px; color: var(--rift); }
+.hint code { background: var(--bg-2); padding: 2px 6px; border-radius: var(--r); color: var(--cyan-soft); }
 .count { color: var(--dim); font-weight: 400; letter-spacing: 0; }
 
 .msg { font-size: 13px; min-height: 18px; margin: 0 0 10px; }
-.msg.ok { color: #4aa863; }
-.msg.err { color: #ff6b5e; }
+.msg.ok { color: var(--win); }
+.msg.err { color: var(--loss); }
 
 .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 
@@ -562,7 +592,7 @@ button.sm { padding: 5px 10px; font-size: 13px; }
   flex-wrap: wrap;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--r);
   padding: 10px 12px;
 }
 
@@ -575,7 +605,7 @@ button.sm { padding: 5px 10px; font-size: 13px; }
 
 .pair-card { display: block; }
 .pair-teams { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
-.pair-vs { color: var(--gold); font-weight: 700; font-size: 13px; }
+.pair-vs { color: var(--brass); font-weight: 700; font-size: 13px; }
 .team-pick {
   flex: 1;
   min-width: 140px;
@@ -588,24 +618,24 @@ button.sm { padding: 5px 10px; font-size: 13px; }
   white-space: normal;
 }
 
-.team-pick:hover { border-color: var(--gold); filter: none; }
+.team-pick:hover { border-color: var(--brass); filter: none; }
 
 .team-pick.won {
-  background: rgba(74, 168, 99, 0.18);
-  border-color: #4aa863;
-  color: #8ce0a4;
+  background: rgba(16, 185, 129, 0.16);
+  border-color: var(--win);
+  color: #6ee7b7;
 }
 
 .team-pick.lost {
-  background: rgba(214, 58, 52, 0.15);
-  border-color: #d63a34;
-  color: #ff9d95;
+  background: rgba(239, 68, 68, 0.15);
+  border-color: var(--loss);
+  color: #fca5a5;
 }
 
 .team-pick.drew, .draw-pick.drew {
-  background: rgba(201, 162, 39, 0.18);
-  border-color: var(--gold);
-  color: var(--gold-hi);
+  background: rgba(202, 138, 4, 0.2);
+  border-color: var(--brass);
+  color: var(--brass-hi);
 }
 
 .draw-pick, .clear-pick {
@@ -620,10 +650,10 @@ button.sm { padding: 5px 10px; font-size: 13px; }
 
 /* Shown on the Round tab when Carde.io owns the pairings. */
 .lock {
-  background: rgba(242, 131, 60, 0.12);
-  border: 1px solid var(--magma);
-  border-left: 4px solid var(--magma);
-  border-radius: 7px;
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid var(--cyan);
+  border-left: 4px solid var(--cyan);
+  border-radius: var(--r);
   padding: 12px 14px;
   margin: 0 0 14px;
   font-size: 14px;
@@ -631,21 +661,21 @@ button.sm { padding: 5px 10px; font-size: 13px; }
   color: var(--ink);
 }
 
-.lock b { color: var(--magma); }
+.lock b { color: var(--cyan); }
 
 button:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
 
 .table-tag {
   flex: none;
   background: var(--bg-2);
-  border: 1px solid var(--gold);
-  color: var(--gold-hi);
+  border: 1px solid var(--brass);
+  color: var(--brass-hi);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   padding: 6px 10px;
-  border-radius: 5px;
+  border-radius: var(--r);
 }
 
 .pair-scores {
@@ -672,6 +702,192 @@ button:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
 }
 
 .result-note { font-size: 13px; color: var(--dim); padding-bottom: 12px; }
-.result-note.done { color: #8ce0a4; font-weight: 600; }
+.result-note.done { color: #6ee7b7; font-weight: 600; }
 
-.bye { color: var(--gold); font-weight: 600; }
+.bye { color: var(--brass); font-weight: 600; }
+
+/* ---------------- PILTOVER HARDWARE ----------------
+   Chamfers, brass threading and glowing seams. Kept in one block at the end so
+   the structural rules above stay about layout and this stays about the look. */
+
+/* Chamfered fills. Solid-filled controls take the cut directly; ghost buttons
+   keep their hairline border and take a smaller one so the border survives. */
+button {
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  letter-spacing: 0.02em;
+}
+button.sm { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
+button:hover { filter: brightness(1.15) saturate(1.05); }
+
+.tabs button {
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  text-transform: uppercase;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+}
+.tabs button.on { box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.35); }
+
+/* Section headers: brass rule that threads out toward the edges rather than a
+   flat line across. */
+h2 {
+  border-bottom: 0;
+  padding-bottom: 8px;
+  position: relative;
+}
+h2::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--brass) 0%, rgba(202, 138, 4, 0.25) 45%, transparent 100%);
+}
+
+/* Machined plates: square, hairline-seamed, with a brass thread between rows
+   rather than a gap alone. */
+.list li {
+  position: relative;
+  border-left: 2px solid var(--line);
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+}
+.list li + li::before {
+  content: "";
+  position: absolute;
+  top: -5px; left: 6%; right: 6%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(202, 138, 4, 0.45), transparent);
+}
+
+/* The TV's own row seams glow instead, since they are read at distance. */
+.standings li + li::before,
+.pairings li + li::before {
+  content: "";
+  position: absolute;
+  top: -0.45vh; left: 4%; right: 4%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 229, 255, 0.35), transparent);
+}
+.standings li, .pairings li { position: relative; }
+
+/* Rank 1 is the only row that gets the cyan edge; everything else is brass or
+   neutral, so the leader reads instantly from the far wall. */
+.standings li.top { border-left-color: var(--cyan); box-shadow: inset 0 0 3vw rgba(0, 229, 255, 0.07); }
+.st-rank { color: var(--brass-hi); }
+.standings li.top .st-rank { color: var(--cyan); text-shadow: 0 0 1.2vw rgba(0, 229, 255, 0.45); }
+.st-points { color: var(--cyan); }
+#dsp-round { color: var(--cyan-soft); }
+
+/* Result tags carry status colour, which is reserved for exactly this. */
+.res-row.win  .res-tag { color: var(--win); }
+.res-row.loss .res-tag { color: var(--loss); }
+.res-row.draw .res-tag { color: var(--brass-hi); }
+
+/* ---------------- STATS: EVENTS & META ----------------
+   Legend meta is per night, player records are across nights, so the tab splits
+   in two rather than mixing the two time-scales in one list. */
+
+.subtabs { display: flex; gap: 6px; margin: 4px 0 4px; }
+.subtabs button {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+}
+.subtabs button.on { color: var(--cyan); border-color: var(--cyan); box-shadow: inset 0 -2px 0 var(--cyan); }
+.subtabs button:hover:not(.on) { color: var(--ink); filter: none; }
+
+/* An archived night is a plate that opens. The head is a button so it is
+   keyboard-reachable; it has to shed the global button fill to sit in the row. */
+.list li.ev { display: block; padding: 0; }
+.ev-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  color: var(--ink);
+  padding: 11px 13px;
+  clip-path: none;
+  font-weight: 400;
+}
+.ev-head:hover { filter: none; background: rgba(0, 229, 255, 0.05); }
+.ev-head .chev {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--cyan);
+  line-height: 1;
+  width: 20px;
+  text-align: center;
+}
+.list li.ev.open { border-left-color: var(--cyan); }
+
+.ev-detail { padding: 2px 13px 14px; border-top: 1px solid var(--line); }
+.ev-detail h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--brass);
+  margin: 16px 0 8px;
+}
+
+.top8 { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.top8 li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 2px;
+  border-bottom: 1px solid rgba(202, 138, 4, 0.18);   /* brass thread between rows */
+}
+.top8 li:last-child { border-bottom: 0; }
+.top8 .pl {
+  width: 26px;
+  font-weight: 800;
+  color: var(--brass-hi);
+  font-variant-numeric: tabular-nums;
+}
+.top8 li:first-child .pl { color: var(--cyan); }
+.top8 .gp { color: var(--cyan); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+
+/* Domain share as a donut -- part-to-whole at a glance, seven categories at
+   most, every segment named in the key beside it. */
+.meta-grid { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: start; }
+@media (max-width: 620px) { .meta-grid { grid-template-columns: 1fr; } }
+
+.meta-donut { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.donut { display: block; }
+.donut-num {
+  text-anchor: middle;
+  font: 700 26px/1 "Inter", system-ui, sans-serif;
+  fill: var(--ink);
+}
+.donut-cap {
+  text-anchor: middle;
+  font: 600 9px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  fill: var(--dim);
+}
+
+.key, .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 13px; }
+.key li { display: flex; align-items: center; gap: 7px; color: var(--dim); }
+.key li b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Legend counts are magnitude, so one hue and a length, not seven more colours.
+   The domain chip beside the name carries the identity. */
+.bars li { display: grid; grid-template-columns: 1fr 1fr 26px; gap: 10px; align-items: center; }
+.bars .bar-name { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.bars .bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bars b { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.bar-track { display: block; background: var(--bg-2); border: 1px solid var(--line); height: 12px; }
+.bar-track > i { display: block; height: 100%; background: var(--cyan-soft); min-width: 2px; }
+/* Player records: length is matches played, the filled part is the share won. */
+.bar-track.wins { flex: 1; min-width: 90px; max-width: 180px; }
+.bar-track.wins > i { background: rgba(56, 189, 248, 0.28); }
+.bar-track.wins em { display: block; height: 100%; background: var(--win); }
+
+.legend-chip { border-radius: 50%; }

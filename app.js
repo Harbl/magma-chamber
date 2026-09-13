@@ -1,4 +1,4 @@
-/* Magma Chamber — Riftbound 2v2 scoreboard
+/* Hextech Ledger — Riftbound event scoreboard
  *
  * Two windows share one state: the control panel (laptop) and the display (TV).
  * State lives in localStorage and changes are pushed over BroadcastChannel, so
@@ -19,7 +19,19 @@ function apiBase() {
   return null;
 }
 
-const KEY = 'magma-chamber';
+const KEY = 'hextech-ledger';
+
+// Renamed from Magma Chamber. A shop part-way through a season must not lose its
+// archive or its branding to a rename, so the old keys are copied across once,
+// before anything reads them. The originals are left alone as a safety net.
+for (const suffix of ['', '-logo', '-tvscale']) {
+  try {
+    const old = localStorage.getItem('magma-chamber' + suffix);
+    if (old !== null && localStorage.getItem(KEY + suffix) === null)
+      localStorage.setItem(KEY + suffix, old);
+  } catch { /* private mode, or no storage at all */ }
+}
+
 const WIN = 3, DRAW = 1;               // match points
 const chan = new BroadcastChannel(KEY);
 const isDisplay = new URLSearchParams(location.search).has('display');
@@ -28,9 +40,12 @@ const $ = sel => document.querySelector(sel);
 const $$ = sel => [...document.querySelectorAll(sel)];
 const uid = () => Math.random().toString(36).slice(2, 9);
 
+// Mirrors the --d-* variables in app.css, which is where the reasoning behind
+// these particular steps is written down. SVG presentation attributes cannot
+// take var(), so the values have to exist here too; a test holds the two in step.
 const DOMAIN_COLOR = {
-  Fury: '#d63a34', Calm: '#4aa863', Mind: '#3b82d6',
-  Body: '#e08b2e', Chaos: '#8b5cd6', Order: '#d9bb35', Colorless: '#7c8798',
+  Fury: '#ff5147', Body: '#ffa033', Order: '#f5e663',
+  Calm: '#35d07f', Mind: '#41b8f5', Chaos: '#b06bff', Colorless: '#94a3b8',
 };
 
 let legends = [];
@@ -384,7 +399,7 @@ function renderDisplay() {
 
   $('#dsp-empty').hidden = rows.length > 0;
   $('#dsp-standings').innerHTML = rows.map((s, i) => `
-    <li class="${i === 0 ? 'top' : ''}" style="--rank-color:${i === 0 ? 'var(--gold)' : 'var(--line)'}">
+    <li class="${i === 0 ? 'top' : ''}" style="--rank-color:${i === 0 ? 'var(--brass)' : 'var(--line)'}">
       <div class="st-rank">${s.rank}</div>
       <div class="st-team">
         <div class="st-name">${esc(s.name)}</div>
@@ -439,6 +454,13 @@ function renderControl() {
   $('#logo-preview').hidden = !logo;
   $('#player-count').textContent = state.players.length ? `(${state.players.length})` : '';
   $('#archive-count').textContent = state.archive.length ? `(${state.archive.length})` : '';
+
+  $('#save-dir-name').textContent = saveDirName
+    ? `Saving to “${saveDirName}”. The browser asks you to confirm once each time it starts up.`
+    : hasFS()
+      ? 'No folder chosen — archives and exports go to your Downloads folder.'
+      : 'This browser cannot pick a folder, so files go to Downloads. Chrome or Edge can.';
+  $('#btn-save-dir-clear').disabled = !saveDirName;
 
   $('#ev-manual').checked = !!state.manual;
   $('#manual-hint').textContent = state.manual
@@ -558,40 +580,128 @@ function renderResults() {
     : '<li class="sub">Nothing to report yet — pair a round and record some results.</li>';
 }
 
+// ------------------------------------------------------------------ meta
+//
+// Legend meta belongs to a single night -- what people brought that week -- so
+// it is computed per archived event rather than pooled. Player records are the
+// opposite: they only mean anything across events. The Stats tab is split in two
+// for exactly that reason.
+
+function eventMeta(ev) {
+  const byLegend = {}, byDomain = {};
+  for (const s of ev.standings || [])
+    (s.legends || []).forEach(n => {
+      if (!n) return;
+      byLegend[n] = (byLegend[n] || 0) + 1;
+      const d = legendOf(n)?.domains?.[0] || 'Colorless';
+      byDomain[d] = (byDomain[d] || 0) + 1;
+    });
+  const legendRows = Object.entries(byLegend).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const domainRows = Object.entries(byDomain).sort((a, b) => b[1] - a[1]);
+  return { legendRows, domainRows, total: legendRows.reduce((n, [, c]) => n + c, 0) };
+}
+
+// A donut, because domain share is part-to-whole at a glance and there are only
+// ever seven domains. Every segment is labelled beside the ring: the domain hues
+// are fixed by the game, so colour alone is never asked to carry identity.
+// Segments are separated by a gap the width of the page background, not a stroke.
+const TAU = Math.PI * 2;
+function donut(rows, total, size = 132) {
+  const r = size / 2, ring = size * 0.17, mid = r - ring / 2;
+  const gap = total > 1 ? 0.022 : 0;                    // radians of surface between segments
+  const arc = (from, to) => {
+    const pt = a => [r + mid * Math.cos(a - Math.PI / 2), r + mid * Math.sin(a - Math.PI / 2)];
+    const [x1, y1] = pt(from), [x2, y2] = pt(to);
+    return `M${x1.toFixed(2)} ${y1.toFixed(2)} A${mid} ${mid} 0 ${to - from > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
+  };
+  let at = 0;
+  const segs = rows.map(([name, count]) => {
+    const span = (count / total) * TAU;
+    const d = arc(at + gap / 2, at + span - gap / 2);
+    at += span;
+    // A single domain would otherwise draw a zero-length arc, so close the ring.
+    return rows.length === 1
+      ? `<circle cx="${r}" cy="${r}" r="${mid}" fill="none" stroke="${DOMAIN_COLOR[name] || DOMAIN_COLOR.Colorless}" stroke-width="${ring}"/>`
+      : `<path d="${d}" fill="none" stroke="${DOMAIN_COLOR[name] || DOMAIN_COLOR.Colorless}" stroke-width="${ring}" stroke-linecap="butt"/>`;
+  }).join('');
+  return `<svg class="donut" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img"
+    aria-label="Domain split: ${rows.map(([n, c]) => `${n} ${c}`).join(', ')}">
+    <circle cx="${r}" cy="${r}" r="${r - ring / 2}" fill="none" stroke="var(--line)" stroke-width="1"/>
+    ${segs}
+    <text x="${r}" y="${r - 2}" class="donut-num">${total}</text>
+    <text x="${r}" y="${r + 15}" class="donut-cap">legends</text>
+  </svg>`;
+}
+
+function metaPanel(ev) {
+  const { legendRows, domainRows, total } = eventMeta(ev);
+  if (!total) return '<p class="sub">No legends were recorded for this night.</p>';
+  const top = legendRows[0][1];
+  return `<div class="meta-grid">
+    <div class="meta-donut">
+      ${donut(domainRows, total)}
+      <ul class="key">${domainRows.map(([n, c]) => `<li>
+        <i class="legend-chip" style="background:${DOMAIN_COLOR[n] || DOMAIN_COLOR.Colorless}"></i>
+        <span class="grow">${esc(n)}</span><b>${c}</b></li>`).join('')}</ul>
+    </div>
+    <ul class="bars">${legendRows.map(([n, c]) => `<li>
+      <span class="bar-name"><i class="legend-chip" style="background:${legendColor(n)}"></i>${esc(shortLegend(n))}</span>
+      <span class="bar-track"><i style="width:${(c / top) * 100}%"></i></span>
+      <b>${c}</b></li>`).join('')}</ul>
+  </div>`;
+}
+
+function eventPanel(ev, i) {
+  const top8 = (ev.standings || []).slice(0, 8);
+  return `<div class="ev-detail">
+    <h3>Top ${top8.length}</h3>
+    <ol class="top8">${top8.map(s => `<li>
+      <span class="pl">${s.place}</span>
+      <span class="grow"><b>${esc(s.name)}</b><br><span class="sub">${esc((s.players || []).join(' & '))}</span></span>
+      <span class="sub">${s.w}-${s.l}${s.d ? `-${s.d}` : ''}</span>
+      <b class="gp">${s.gp ?? 0}</b>
+    </li>`).join('') || '<li class="sub">No standings saved.</li>'}</ol>
+    <h3>Legend meta that night</h3>
+    ${metaPanel(ev)}
+    <div class="row">
+      <button class="ghost sm" data-del-archive="${i}">Delete this event</button>
+    </div>
+  </div>`;
+}
+
+let openEvent = -1;     // which archived event is expanded; view state, not saved
+
 function renderStats() {
+  $('#archive-count').textContent = state.archive.length ? `(${state.archive.length})` : '';
+  $('#archive-list').innerHTML = state.archive.length ? state.archive.map((ev, i) => `
+    <li class="ev ${openEvent === i ? 'open' : ''}">
+      <button class="ev-head" data-event="${i}" aria-expanded="${openEvent === i}">
+        <span class="grow"><b>${esc(ev.name || 'Untitled event')}</b><br>
+          <span class="sub">${new Date(ev.date).toLocaleDateString()} &middot;
+          ${(ev.teams || []).length} teams &middot; won by ${esc(ev.standings?.[0]?.name ?? '—')}</span></span>
+        <span class="chev" aria-hidden="true">${openEvent === i ? '&minus;' : '+'}</span>
+      </button>
+      ${openEvent === i ? eventPanel(ev, i) : ''}
+    </li>`).join('')
+    : '<li class="sub">No saved events yet. Finish and archive a night and it appears here.</li>';
+
   const hist = playerHistory();
   $('#hist-count').textContent = hist.length ? `(${hist.length})` : '';
   $('#btn-export-history').disabled = !hist.length;
+  const most = Math.max(1, ...hist.map(e => e.played));
   $('#hist-list').innerHTML = hist.length ? hist.map(e => {
     const tops = topLegends(e);
     return `<li>
       <span class="grow"><b>${esc(e.name)}</b><br>
         <span class="sub">${e.w}-${e.l}${e.d ? `-${e.d}` : ''} &middot; ${(e.winPct * 100).toFixed(0)}% &middot;
         ${e.events} night${e.events === 1 ? '' : 's'}${e.wins ? ` &middot; ${e.wins} won` : ''}</span></span>
+      <span class="bar-track wins" title="${e.w} of ${e.played} matches won">
+        <i style="width:${(e.played / most) * 100}%"><em style="width:${e.winPct * 100}%"></em></i></span>
       <span class="sub legends">${tops.length
         ? tops.map(n => `<i class="legend-chip" style="background:${legendColor(n)}"></i>${esc(shortLegend(n))}`).join(' ')
         : 'no legend recorded'}</span>
     </li>`;
   }).join('') : '<li class="sub">Nothing yet — finish and archive a night and everyone who played shows up here.</li>';
-
-  const counts = {};
-  for (const ev of state.archive)
-    for (const p of ev.players) if (p.legend) counts[p.legend] = (counts[p.legend] || 0) + 1;
-  for (const p of state.players) if (p.legend) counts[p.legend] = (counts[p.legend] || 0) + 1;
-
-  const total = Object.values(counts).reduce((a, b) => a + b, 0);
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
-  $('#meta-list').innerHTML = total ? sorted.map(([n, c]) => `
-    <li><i class="legend-chip" style="background:${legendColor(n)};width:14px;height:14px"></i>
-      <span class="grow">${esc(n)}</span>
-      <span class="sub">${c} &middot; ${((c / total) * 100).toFixed(0)}%</span></li>`).join('')
-    : '<li class="sub">No legends recorded yet.</li>';
-
-  $('#archive-list').innerHTML = state.archive.length ? state.archive.map((ev, i) => `
-    <li><span class="grow"><b>${esc(ev.name || 'Untitled event')}</b><br>
-      <span class="sub">${new Date(ev.date).toLocaleDateString()} &middot; ${ev.teams.length} teams &middot; winner: ${esc(ev.standings[0]?.name ?? '—')}</span></span>
-      <button class="ghost sm" data-del-archive="${i}">Delete</button></li>`).join('')
-    : '<li class="sub">No saved events yet.</li>';
 }
 
 // ------------------------------------------------------- round results
@@ -754,7 +864,61 @@ function finishEvent() {
   msg('#danger-msg', 'Event archived and a backup file downloaded.', 'ok');
 }
 
-function download(filename, text, type) {
+// ------------------------------------------------------- where files go
+//
+// A shop wants its archives landing in one folder, not scattered through
+// Downloads. The only way a web page can write to a chosen folder is a directory
+// handle from showDirectoryPicker(), and a handle cannot be JSON-serialised, so
+// it lives in IndexedDB rather than localStorage. Everything degrades: no API,
+// no permission, or a folder that has moved all fall back to a normal download.
+const DIR_DB = KEY + '-fs';
+const hasFS = () => typeof window.showDirectoryPicker === 'function';
+
+function dirStore(mode, value) {
+  return new Promise(resolve => {
+    if (!window.indexedDB) return resolve(null);
+    const open = indexedDB.open(DIR_DB, 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('h');
+    open.onerror = () => resolve(null);
+    open.onsuccess = () => {
+      const tx = open.result.transaction('h', mode === 'get' ? 'readonly' : 'readwrite');
+      const store = tx.objectStore('h');
+      const req = mode === 'get' ? store.get('dir')
+        : value ? store.put(value, 'dir') : store.delete('dir');
+      req.onsuccess = () => resolve(mode === 'get' ? req.result || null : true);
+      req.onerror = () => resolve(null);
+    };
+  });
+}
+
+let saveDir = null;        // the live handle, once permission is confirmed
+let saveDirName = '';      // shown in Settings; known even before permission is
+
+// Permission does not survive a reload, and re-asking needs a user gesture --
+// which every caller of this has, since they are all button presses.
+async function ensureDir(ask = false) {
+  const handle = saveDir || await dirStore('get');
+  if (!handle) return null;
+  const opts = { mode: 'readwrite' };
+  let perm = await handle.queryPermission?.(opts);
+  if (perm !== 'granted' && ask) perm = await handle.requestPermission?.(opts);
+  if (perm !== 'granted') return null;
+  saveDir = handle;
+  return handle;
+}
+
+async function download(filename, text, type) {
+  const dir = await ensureDir(true);
+  if (dir) {
+    try {
+      const file = await dir.getFileHandle(filename, { create: true });
+      const w = await file.createWritable();
+      await w.write(new Blob([text], { type }));
+      await w.close();
+      msg('#settings-msg', `Saved ${filename} to ${dir.name}.`, 'ok');
+      return;
+    } catch { /* folder moved, or write refused -- fall through to the browser */ }
+  }
   const url = URL.createObjectURL(new Blob([text], { type }));
   const a = Object.assign(document.createElement('a'), { href: url, download: filename });
   a.click();
@@ -1123,12 +1287,35 @@ if (!isDisplay) {
   $('#btn-export-csv').onclick = () => download('riftbound-all-events.csv', toCSV(), 'text/csv');
   $('#btn-export-players').onclick = () => {
     if (!state.teams.length) return msg('#settings-msg', 'No teams in the current event.', 'err');
-    download('magma-chamber-player-results.csv', playerResultsCSV(), 'text/csv');
+    download('hextech-ledger-player-results.csv', playerResultsCSV(), 'text/csv');
   };
   $('#btn-export-history').onclick = () => {
     if (!state.archive.length) return msg('#stats-msg', 'No archived events yet.', 'err');
-    download('magma-chamber-player-records.csv', playerHistoryCSV(), 'text/csv');
+    download('hextech-ledger-player-records.csv', playerHistoryCSV(), 'text/csv');
   };
+  // Remembered across restarts; the browser still asks to confirm access once
+  // per session the first time something is written.
+  dirStore('get').then(h => { if (h) { saveDirName = h.name; render(); } });
+
+  $('#btn-save-dir').onclick = async () => {
+    if (!hasFS()) return msg('#settings-msg', 'This browser cannot pick a folder — files will go to Downloads. Chrome or Edge can.', 'err');
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      await dirStore('put', handle);
+      saveDir = handle;
+      saveDirName = handle.name;
+      render();
+      msg('#settings-msg', `Archives and exports will be saved to ${handle.name}.`, 'ok');
+    } catch { /* picker dismissed */ }
+  };
+  $('#btn-save-dir-clear').onclick = async () => {
+    await dirStore('del');
+    saveDir = null;
+    saveDirName = '';
+    render();
+    msg('#settings-msg', 'Files will go to your Downloads folder again.', 'ok');
+  };
+
   $('#btn-import-file').onclick = () => $('#file-input').click();
   $('#file-input').onchange = async e => {
     const file = e.target.files[0];
@@ -1146,9 +1333,25 @@ if (!isDisplay) {
     e.target.value = '';
   };
 
+  $$('.subtabs button[data-sub]').forEach(b => b.onclick = () => {
+    $$('.subtabs button[data-sub]').forEach(x => x.classList.toggle('on', x === b));
+    $$('[data-subpanel]').forEach(p => { p.hidden = p.dataset.subpanel !== b.dataset.sub; });
+  });
+
   $('#stats-msg').closest('section').onclick = e => {
+    const head = e.target.closest?.('[data-event]');
+    if (head) {                              // one night open at a time
+      const i = +head.dataset.event;
+      openEvent = openEvent === i ? -1 : i;
+      render();
+      return;
+    }
     const i = e.target.dataset.delArchive;
-    if (i !== undefined && confirm('Delete this saved event?')) { state.archive.splice(+i, 1); save(); }
+    if (i !== undefined && confirm('Delete this saved event?')) {
+      state.archive.splice(+i, 1);
+      openEvent = -1;
+      save();
+    }
   };
 }
 
@@ -1163,7 +1366,12 @@ let settingsOnly = false;
 
 // An unofficial night has no locator event to mirror, so only an official 1v1 is
 // the UVS mirror. Everything else is run here, which is what uvsMode means.
+//
+// 2v2 has no manual setting at all: the app runs those pairings either way, so
+// the only thing a toggle could change is whether the signup import is offered,
+// which is not worth a switch. Manual is therefore a 1v1 idea.
 function setMode(mode, manual = state.manual) {
+  if (mode === '2v2') manual = false;
   const changed = state.mode !== mode || !!state.manual !== !!manual;
   state.mode = mode;
   state.manual = !!manual;
@@ -1204,6 +1412,7 @@ function applyMode() {
   });
   $('#mode-badge').textContent = m || 'shop';
   $('#mode-name').textContent = m ? (state.manual ? `manual ${m}` : m) : '—';
+  $('#btn-change-mode').textContent = `Switch to ${m === '1v1' ? '2v2' : '1v1'}`;
 }
 
 // Manual 1v1 is scored with the same team machinery as 2v2, with each player in

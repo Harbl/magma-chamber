@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Magma Chamber — Riftbound 2v2</title>
+<title>Hextech Ledger — Riftbound 2v2</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0a0e1a">
+<meta name="theme-color" content="#0f141c">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="app.css">
 </head>
@@ -21,7 +21,7 @@
       <img id="dsp-logo" class="dsp-logo" alt="" hidden>
       <p id="dsp-shop" class="dsp-shop" hidden></p>
       <div id="dsp-x" class="collab-x" aria-hidden="true" hidden>&#10005;</div>
-      <p class="dsp-app">Magma Chamber</p>
+      <p class="dsp-app">Hextech Ledger</p>
       <p id="dsp-round">Waiting to start</p>
     </div>
     <div class="dsp-clock">
@@ -43,7 +43,7 @@
 <div id="splash" hidden>
   <div class="splash-inner">
     <img src="icon.svg" alt="" class="splash-mark">
-    <h1>Magma Chamber</h1>
+    <h1>Hextech Ledger</h1>
     <p class="splash-ask">What kind of night is this?</p>
     <div class="splash-choices">
       <button class="splash-card" data-mode="1v1">
@@ -57,10 +57,10 @@
           the leaderboard.</span>
       </button>
     </div>
-    <!-- An ad-hoc night has no official event to read from, so the app has to run
-         the whole thing itself. Applies to whichever choice is made above. -->
+    <!-- An unofficial 1v1 has no event to read from, so the app has to run the
+         whole thing itself. 2v2 always does, so this only applies to 1v1. -->
     <label class="chk splash-chk"><input type="checkbox" id="splash-manual">
-      Manual &mdash; unofficial night, this app runs the pairings</label>
+      Manual 1v1 &mdash; unofficial night, this app runs the pairings</label>
     <div class="splash-extra">
       <button id="splash-settings" class="splash-mini">Shop settings</button>
     </div>
@@ -73,7 +73,7 @@
   <header class="brand">
     <img src="icon.svg" alt="" class="brand-mark">
     <div>
-      <h1>Magma Chamber</h1>
+      <h1>Hextech Ledger</h1>
       <p>Riftbound <span id="mode-badge">2v2</span> event control</p>
     </div>
   </header>
@@ -107,7 +107,8 @@
     </label>
 
     <h2>How this night runs</h2>
-    <label class="chk"><input type="checkbox" id="ev-manual">
+    <!-- 2v2 pairs locally either way, so the toggle only means something for 1v1. -->
+    <label class="chk" data-only="1v1"><input type="checkbox" id="ev-manual">
       Manual &mdash; unofficial night, this app runs the pairings</label>
     <p class="hint" id="manual-hint"></p>
 
@@ -216,19 +217,32 @@
   </section>
 
   <!-- STATS -->
+  <!-- Two different time-scales, so two sub-tabs: legend meta is what people
+       brought on one night, player records only mean anything across nights. -->
   <section data-panel="stats" hidden>
-    <h2>Player records <span id="hist-count" class="count"></span></h2>
-    <p class="hint">Everyone who has played a night you finished and archived,
-      with their lifetime record and the legends they have brought. Both
-      team-mates get their team's result, the same as the reporting list.</p>
-    <div class="row">
-      <button id="btn-export-history" class="ghost">Export player records (CSV)</button>
+    <nav class="subtabs">
+      <button data-sub="events" class="on">Events</button>
+      <button data-sub="players">Players</button>
+    </nav>
+
+    <div data-subpanel="events">
+      <h2>Event history <span id="archive-count" class="count"></span></h2>
+      <p class="hint">Open a night to see its top 8 and the legend meta for that
+        night alone.</p>
+      <ul id="archive-list" class="list"></ul>
     </div>
-    <ul id="hist-list" class="list"></ul>
-    <h2>Legend meta</h2>
-    <ul id="meta-list" class="list"></ul>
-    <h2>Event history <span id="archive-count" class="count"></span></h2>
-    <ul id="archive-list" class="list"></ul>
+
+    <div data-subpanel="players" hidden>
+      <h2>Player records <span id="hist-count" class="count"></span></h2>
+      <p class="hint">Everyone who has played a night you finished and archived,
+        with their lifetime record and the legends they bring. Both team-mates
+        get their team's result, the same as the reporting list. The bar shows
+        matches played, filled by the share they won.</p>
+      <div class="row">
+        <button id="btn-export-history" class="ghost">Export player records (CSV)</button>
+      </div>
+      <ul id="hist-list" class="list"></ul>
+    </div>
     <p id="stats-msg" class="msg"></p>
   </section>
 
@@ -237,7 +251,7 @@
        across archiving and Reset everything. -->
   <section data-panel="settings" hidden>
     <h2>Shop branding</h2>
-    <p class="hint">Shown on the TV above the Magma Chamber name. Set once and it
+    <p class="hint">Shown on the TV above the Hextech Ledger name. Set once and it
       sticks on this computer &mdash; it is not cleared between events.</p>
     <div class="pick">
       <label><input type="radio" name="brand" id="brand-text"> Shop name</label>
@@ -266,6 +280,15 @@
     </label>
     <p class="hint">TV text size is set on the display window itself with the
       <b>+</b>, <b>&minus;</b> and <b>0</b> keys.</p>
+
+    <h2>Where files are saved</h2>
+    <p class="hint">Pick a folder and every archive and export lands there
+      instead of Downloads. Remembered on this computer.</p>
+    <div class="row">
+      <button id="btn-save-dir" class="ghost">Choose folder&hellip;</button>
+      <button id="btn-save-dir-clear" class="ghost">Use Downloads</button>
+    </div>
+    <p id="save-dir-name" class="hint"></p>
 
     <h2>Backups</h2>
     <div class="row">

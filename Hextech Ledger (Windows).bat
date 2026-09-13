@@ -1,5 +1,5 @@
 @echo off
-rem Double-click to run Magma Chamber locally on Windows.
+rem Double-click to run Hextech Ledger locally on Windows.
 rem Requires Node.js. Closing this window stops the app.
 
 cd /d "%~dp0"
