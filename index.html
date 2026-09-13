@@ -37,13 +37,39 @@
   </section>
 </main>
 
+<!-- ============ SPLASH ============ -->
+<!-- Shown until a mode is picked. The mode decides which tabs and settings
+     exist at all, so asking first is what keeps the rest uncluttered. -->
+<div id="splash" hidden>
+  <div class="splash-inner">
+    <img src="icon.svg" alt="" class="splash-mark">
+    <h1>Magma Chamber</h1>
+    <p class="splash-ask">What kind of night is this?</p>
+    <div class="splash-choices">
+      <button class="splash-card" data-mode="1v1">
+        <b>1v1</b>
+        <span>Nexus Nights, skirmishes, store events. The Riftbound page makes
+          the pairings and players report themselves &mdash; this puts it all on
+          the TV with a round clock.</span>
+      </button>
+      <button class="splash-card" data-mode="2v2">
+        <b>2v2</b>
+        <span>Teams of two. This app makes the pairings, assigns tables, tracks
+          points for the leaderboard, and gives you a list to report from
+          between rounds.</span>
+      </button>
+    </div>
+    <p class="splash-note">You can switch later from the Setup tab.</p>
+  </div>
+</div>
+
 <!-- ============ CONTROL PANEL ============ -->
 <div id="control" hidden>
   <header class="brand">
     <img src="icon.svg" alt="" class="brand-mark">
     <div>
       <h1>Magma Chamber</h1>
-      <p>Riftbound 2v2 event control</p>
+      <p>Riftbound <span id="mode-badge">2v2</span> event control</p>
     </div>
   </header>
 
@@ -66,13 +92,13 @@
     <label>Round length (minutes)
       <input id="ev-minutes" type="number" min="1" max="180" value="50">
     </label>
-    <label>Points awarded for a bye
-      <input id="ev-bye" type="number" min="0" max="99" value="8">
-    </label>
     <label>Overtime after time is called (minutes, 0 = none)
       <input id="ev-overtime" type="number" min="0" max="60" value="0">
     </label>
-    <label>Number of tables in the store
+    <label data-only="2v2">Points awarded for a bye
+      <input id="ev-bye" type="number" min="0" max="99" value="8">
+    </label>
+    <label data-only="2v2">Number of tables in the store
       <input id="ev-tables" type="number" min="1" max="99" value="8">
     </label>
     <label>Show pairings on the TV for (minutes, 0 = never)
@@ -123,6 +149,11 @@
       <button id="btn-finish" class="warn">Finish &amp; archive event</button>
       <button id="btn-reset" class="danger">Reset everything</button>
     </div>
+    <p class="hint">Currently set up for <b id="mode-name">2v2</b> nights.
+      Switching clears the round in progress, since the two run differently.</p>
+    <div class="row">
+      <button id="btn-change-mode" class="ghost">Switch to the other kind of night</button>
+    </div>
   </section>
 
   <!-- TEAMS -->
@@ -153,20 +184,19 @@
       their own results there. Press <b>Refresh from UVS</b> after each new round
       is paired. The round clock below is still yours.
     </p>
-    <label class="chk"><input type="checkbox" id="uvs-on">
-      Show the UVS event instead (1v1 nights)</label>
-    <div class="row">
+    <div class="row" data-only="1v1">
       <button id="btn-uvs" class="ghost">Refresh from UVS</button>
     </div>
-    <p id="uvs-msg" class="msg"></p>
+    <p id="uvs-msg" class="msg" data-only="1v1"></p>
 
+    <!-- The clock belongs to both kinds of night; the pairing buttons do not. -->
     <div class="row">
-      <button id="btn-pair">Generate pairings</button>
+      <button id="btn-pair" data-only="2v2">Generate pairings</button>
       <button id="btn-start" class="ghost">Start timer</button>
       <button id="btn-pause" class="ghost">Pause</button>
       <button id="btn-reset-timer" class="ghost">Reset timer</button>
     </div>
-    <div class="row">
+    <div class="row" data-only="2v2">
       <button id="btn-next-round" class="ghost">Finish round &amp; continue</button>
     </div>
     <p id="round-msg" class="msg"></p>

@@ -431,6 +431,59 @@ input:focus, select:focus { outline: 2px solid var(--rift); outline-offset: -1px
 .pick label { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--ink); font-size: 14px; cursor: pointer; }
 .pick input { width: auto; flex: none; margin: 0; accent-color: var(--magma); }
 
+/* ---------------- SPLASH ---------------- */
+
+#splash {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(90vw 60vh at 50% -10%, #16233d 0%, transparent 65%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+}
+
+.splash-inner { width: 100%; max-width: 760px; text-align: center; }
+.splash-mark { width: 68px; height: 68px; }
+.splash-inner h1 {
+  margin: 10px 0 2px;
+  font-size: 34px;
+  letter-spacing: 0.01em;
+  color: var(--magma);
+  text-shadow: 0 0 28px rgba(242, 131, 60, 0.35);
+}
+.splash-ask { margin: 0 0 26px; color: var(--dim); }
+
+/* Two cards side by side, stacking on a narrow laptop rather than squeezing. */
+.splash-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 620px) { .splash-choices { grid-template-columns: 1fr; } }
+
+.splash-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 20px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.splash-card:hover { border-color: var(--gold); transform: translateY(-2px); filter: none; }
+.splash-card b {
+  display: block;
+  font-size: 26px;
+  margin-bottom: 8px;
+  color: var(--gold-hi);
+  letter-spacing: 0.02em;
+}
+.splash-card span { display: block; font-size: 13px; line-height: 1.55; color: var(--dim); font-weight: 400; }
+.splash-note { margin: 22px 0 0; font-size: 12px; color: var(--dim); }
+
+#mode-badge { color: var(--gold-hi); font-weight: 700; }
+
 /* Reporting list: colour-coded so the eye can run down it while typing into
    another window, which is the whole job this screen exists for. */
 .res-tag { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }

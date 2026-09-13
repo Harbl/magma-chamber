@@ -40,6 +40,7 @@ let state = load();
 
 function blank() {
   return {
+    mode: null,             // '1v1' | '2v2', chosen on the splash screen
     name: '', minutes: 50, byePoints: 8, tables: 8, pairingMinutes: 8, overtime: 0,
     shopName: '', brandMode: 'text',   // venue half of the TV lockup; logo itself is in LOGO_KEY
     eventId: '', uvsMode: false,       // locator event, and whether it owns the pairings
@@ -135,6 +136,14 @@ function setImg(sel, url) {
 }
 
 // ---------------------------------------------------------------- lookups
+
+// The mode decides which tabs and settings exist at all. Anything carrying
+// data-only="1v1"/"2v2" is shown only in that mode, so the markup declares its
+// own relevance rather than this having to know about each control.
+const MODE_TABS = {
+  '1v1': ['setup', 'round', 'stats'],
+  '2v2': ['setup', 'teams', 'round', 'results', 'standings', 'stats'],
+};
 
 const team = id => state.teams.find(t => t.id === id);
 const player = id => state.players.find(p => p.id === id);
@@ -399,6 +408,9 @@ function shortLegend(n) { return n.split(' - ')[0]; }
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 function renderControl() {
+  applyMode();
+  if (!state.mode) return;   // splash is up; nothing behind it needs filling in
+
   $('#ev-name').value = state.name;
   $('#ev-minutes').value = state.minutes;
   $('#ev-bye').value = state.byePoints ?? 8;
@@ -448,7 +460,6 @@ function renderControl() {
   // disagree and results get reported against the wrong matches.
   const locked = state.uvsMode;
   $('#uvs-lock').hidden = !state.uvsMode;
-  $('#uvs-on').checked = !!state.uvsMode;
   $('#btn-uvs').disabled = !state.uvsMode;
   ['#btn-pair', '#btn-next-round'].forEach(sel => { $(sel).disabled = locked; });
   // Mirroring UVS: nothing is scored here, so the list is read-only and just
@@ -754,12 +765,15 @@ function toCSV() {
 // ---------------------------------------------------------------- events
 
 if (!isDisplay) {
-  $('#control').hidden = false;
+  $$('.tabs button[data-tab]').forEach(b => b.onclick = () => showTab(b.dataset.tab));
 
-  $$('.tabs button[data-tab]').forEach(b => b.onclick = () => {
-    $$('.tabs button[data-tab]').forEach(x => x.classList.toggle('on', x === b));
-    $$('section[data-panel]').forEach(s => s.hidden = s.dataset.panel !== b.dataset.tab);
-  });
+  $$('#splash .splash-card').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+
+  $('#btn-change-mode').onclick = () => {
+    const to = state.mode === '1v1' ? '2v2' : '1v1';
+    if (!confirm(`Switch to ${to}? The round in progress will be cleared.`)) return;
+    setMode(to);
+  };
 
   $('#open-display').onclick = () => window.open('?display=1', 'rb-display', 'width=1280,height=720');
 
@@ -819,12 +833,6 @@ if (!isDisplay) {
     }
   };
 
-  $('#uvs-on').onchange = e => {
-    state.uvsMode = e.target.checked;
-    if (!state.uvsMode) { state.uvsPairings = null; state.uvsStandings = null; state.uvsRound = 0; }
-    save();
-    if (state.uvsMode) pullUvs(); else msg('#uvs-msg', 'Back to this app making the pairings.', 'ok');
-  };
   $('#btn-uvs').onclick = () => pullUvs();
 
   async function pullUvs() {
@@ -1009,6 +1017,48 @@ if (!isDisplay) {
     const i = e.target.dataset.delArchive;
     if (i !== undefined && confirm('Delete this saved event?')) { state.archive.splice(+i, 1); save(); }
   };
+}
+
+function showTab(tab) {
+  $$('.tabs button[data-tab]').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  $$('section[data-panel]').forEach(s => { s.hidden = s.dataset.panel !== tab; });
+}
+
+// 1v1 *is* the UVS mirror and 2v2 is always local, so the mode sets uvsMode
+// rather than the organiser having to keep a separate switch in agreement.
+function setMode(mode) {
+  const changed = state.mode !== mode;
+  state.mode = mode;
+  state.uvsMode = mode === '1v1';
+  if (changed) {
+    state.rounds = [];
+    state.uvsPairings = null;
+    state.uvsStandings = null;
+    state.uvsRound = 0;
+  }
+  save();
+  showTab('setup');
+  if (state.uvsMode && state.eventId) $('#btn-uvs').click();
+}
+
+function applyMode() {
+  const m = state.mode;
+  $('#splash').hidden = !!m;
+  $('#control').hidden = !m;
+  if (!m) return;
+
+  const allowed = MODE_TABS[m] || MODE_TABS['2v2'];
+  let openTab = null;
+  $$('.tabs button[data-tab]').forEach(b => {
+    b.hidden = !allowed.includes(b.dataset.tab);
+    if (b.classList.contains('on') && !b.hidden) openTab = b.dataset.tab;
+  });
+  // Switching modes can hide the tab you were on; don't leave a blank panel.
+  if (!openTab) showTab('setup');
+
+  $$('[data-only]').forEach(el => { el.hidden = el.dataset.only !== m; });
+  $('#mode-badge').textContent = m;
+  $('#mode-name').textContent = m;
 }
 
 function addTeam(a, b, name = '') {

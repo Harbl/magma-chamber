@@ -56,8 +56,11 @@ function makeNode() {
 }
 
 function makeCtx(search = '') {
-  const store = {}, nodes = {};
+  const store = {}, nodes = {}, lists = {};
   const node = sel => (nodes[sel] ||= makeNode());
+  // querySelectorAll returning [] for everything makes any check on tab or
+  // setting visibility vacuous, so tests can register real nodes per selector.
+  const listFor = sel => lists[sel] || [];
   const ctx = {
     console,
     localStorage: {
@@ -67,7 +70,7 @@ function makeCtx(search = '') {
     },
     BroadcastChannel: class { postMessage() {} set onmessage(_) {} },
     document: {
-      querySelector: node, querySelectorAll: () => [], createElement: () => makeNode(),
+      querySelector: node, querySelectorAll: listFor, createElement: () => makeNode(),
       body: makeNode(),
     },
     location: { search, hostname: 'localhost' },
@@ -95,7 +98,7 @@ function makeCtx(search = '') {
   };
   ctx.window = ctx;
   vm.createContext(ctx);
-  return { ctx, nodes };
+  return { ctx, nodes, lists };
 }
 
 const { ctx } = makeCtx('');
@@ -434,7 +437,7 @@ console.log('\nUVS mirror:');
   check('turning it off clears the mirrored rows', urun('displayPairings().length') === 0);
 
   // Local pairing stays locked while mirroring.
-  urun(`state = blank(); state.uvsMode = true; renderControl();`);
+  urun(`state = blank(); state.mode = '1v1'; state.uvsMode = true; renderControl();`);
   check('Generate pairings is disabled while mirroring', unodes['#btn-pair'].disabled === true);
   check('the explanation is shown', unodes['#uvs-lock'].hidden === false);
 
@@ -515,6 +518,84 @@ console.log('\nround results list:');
   const absent = shell.filter(f => !fs.existsSync(path.join(__dirname, '..', f)));
   check('every pre-cached shell file exists', absent.length === 0, absent.join(', '));
   check('the cache name was bumped past v2', /magma-chamber-v([3-9]|\d\d)/.test(sw));
+}
+
+// --- 9c. splash screen and mode gating ------------------------------------
+// The mode decides which tabs and settings exist. Real nodes are registered for
+// the querySelectorAll selectors, otherwise every check here would be vacuous.
+console.log('\nsplash and mode gating:');
+{
+  const { ctx: mctx, nodes: mnodes, lists: mlists } = makeCtx('');
+  const tab = name => {
+    const n = makeNode();
+    n.dataset.tab = name;
+    return n;
+  };
+  const only = mode => {
+    const n = makeNode();
+    n.dataset.only = mode;
+    return n;
+  };
+  const tabs = ['setup', 'teams', 'round', 'results', 'standings', 'stats'].map(tab);
+  const onlies = [only('2v2'), only('2v2'), only('1v1')];
+  mlists['.tabs button[data-tab]'] = tabs;
+  mlists['[data-only]'] = onlies;
+  mlists['section[data-panel]'] = [];
+  mlists['#splash .splash-card'] = [];
+
+  vm.runInContext(SRC, mctx);
+  const mrun = expr => vm.runInContext(expr, mctx);
+  const shown = () => tabs.filter(t => !t.hidden).map(t => t.dataset.tab).join(',');
+
+  // A fresh install has no mode, so the splash must be the thing on screen.
+  mrun(`state = blank(); renderControl();`);
+  check('a fresh install shows the splash', mnodes['#splash'].hidden === false);
+  check('the control panel is hidden behind it', mnodes['#control'].hidden === true);
+
+  mrun(`setMode('2v2');`);
+  check('picking 2v2 dismisses the splash', mnodes['#splash'].hidden === true);
+  check('the control panel appears', mnodes['#control'].hidden === false);
+  check('2v2 shows every tab', shown() === 'setup,teams,round,results,standings,stats');
+  check('2v2 does not mirror UVS', mrun('state.uvsMode') === false);
+  check('2v2-only settings are shown', onlies[0].hidden === false);
+  check('1v1-only settings are hidden', onlies[2].hidden === true);
+  check('the badge names the mode', mnodes['#mode-badge'].textContent === '2v2');
+
+  mrun(`setMode('1v1');`);
+  check('1v1 drops Teams, Results and Standings', shown() === 'setup,round,stats');
+  check('1v1 turns the UVS mirror on', mrun('state.uvsMode') === true);
+  check('2v2-only settings are hidden', onlies[0].hidden === true);
+  check('1v1-only settings are shown', onlies[2].hidden === false);
+
+  // Switching must not leave a half-finished round of the other kind behind.
+  mrun(`state.rounds = [{n:1,pairings:[],endsAt:0,pausedMs:0,running:false}];
+        state.uvsPairings = [{table:1,names:['a','b'],bye:false,done:false}];
+        setMode('2v2');`);
+  check('switching clears the round in progress', mrun('state.rounds.length') === 0);
+  check('switching clears mirrored rows', mrun('state.uvsPairings') === null);
+
+  // Re-picking the same mode is not a switch, so it must not wipe the event.
+  mrun(`state.rounds = [{n:1,pairings:[],endsAt:0,pausedMs:0,running:false}]; setMode('2v2');`);
+  check('re-picking the same mode keeps the round', mrun('state.rounds.length') === 1);
+
+  // Landing on a tab that the new mode hides must not leave a blank screen.
+  tabs.forEach(t => t.classList.remove('on'));
+  tabs.find(t => t.dataset.tab === 'teams').classList.add('on');
+  mrun(`state.mode = '1v1'; applyMode();`);
+  check('a tab hidden by the new mode falls back to Setup',
+    tabs.find(t => t.dataset.tab === 'setup').classList.contains('on') === true);
+
+  // The mode has to survive a reload, so it must reach localStorage.
+  mrun(`setMode('1v1');`);
+  check('the mode is part of saved state',
+    mrun(`JSON.parse(localStorage.getItem('magma-chamber')).mode`) === '1v1');
+  check('a reload comes back in the same mode', mrun(`load().mode`) === '1v1');
+
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  check('both choices exist on the splash', /data-mode="1v1"/.test(html) && /data-mode="2v2"/.test(html));
+  check('the splash starts hidden until state decides', /<div id="splash" hidden>/.test(html));
+  check('the timer buttons are not mode-gated',
+    /<button id="btn-start"[^>]*>/.test(html) && !/<button id="btn-start"[^>]*data-only/.test(html));
 }
 
 // --- 9b. overtime clock ----------------------------------------------------

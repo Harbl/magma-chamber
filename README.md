@@ -166,15 +166,36 @@ event is archived.
 
 ---
 
-## The ways a night can run
+## Modes
 
-| mode | pairings | scoring | reporting |
-|---|---|---|---|
-| **2v2** (default) | this app, Swiss | this app, game points | typed into Carde from the Results tab |
-| **1v1** (`state.uvsMode`) | UVS | none — UVS's own | players, on UVS |
+The app opens on a **splash screen** asking 1v1 or 2v2, and nothing else is shown
+until one is picked. That choice is what keeps the rest uncluttered:
 
-Ticking *Show the UVS event* disables *Generate pairings* and *Finish round &
-continue* — buttons and handlers both.
+| mode | tabs | pairings | scoring | reporting |
+|---|---|---|---|---|
+| **1v1** | Setup, Round, Stats | UVS | none — UVS's own | players, on UVS |
+| **2v2** | + Teams, Results, Standings | this app, Swiss | this app, game points | typed in from the Results tab |
+
+`MODE_TABS` lists the tabs per mode. Individual controls declare their own
+relevance with **`data-only="1v1"` / `data-only="2v2"`** in the markup, so
+`applyMode()` never has to know about each one — bye points and table count are
+2v2-only, *Refresh from UVS* is 1v1-only, and the timer buttons are deliberately
+neither, since both kinds of night need a clock.
+
+**The mode sets `uvsMode`** rather than leaving a second switch to keep in
+agreement: 1v1 *is* the UVS mirror, 2v2 is always local. The old checkbox is gone.
+
+Switching clears `state.rounds` and any mirrored rows, because a round from one
+mode means something different in the other. Re-picking the same mode is not a
+switch and leaves the event alone. If the open tab is hidden by the new mode it
+falls back to Setup, rather than leaving a blank panel.
+
+`state.mode` starts `null`, so **an existing install lands on the splash once**
+after updating, then remembers the choice.
+
+> The test harness registers real nodes for the `querySelectorAll` selectors it
+> needs. Without that, every check on tab or setting visibility passes trivially
+> against an empty list — the same trap the no-op `classList` stub created.
 
 ## Carde.io was removed entirely (2026-09-13)
 
