@@ -1,7 +1,9 @@
 // Cache the app shell so a dropped wifi connection mid-tournament doesn't take
 // the scoreboard down. Bump CACHE to force clients onto a new version.
-const CACHE = 'magma-chamber-v2';
-const SHELL = ['.', 'index.html', 'app.css', 'app.js', 'carde.js',
+// addAll() rejects as a whole if any one URL 404s, which silently stops the
+// worker installing -- so every entry here must really exist. A test checks it.
+const CACHE = 'magma-chamber-v3';
+const SHELL = ['.', 'index.html', 'app.css', 'app.js',
   'data/legends.json', 'icon.svg', 'manifest.webmanifest'];
 
 self.addEventListener('install', e => {

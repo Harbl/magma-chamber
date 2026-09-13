@@ -505,6 +505,16 @@ console.log('\nround results list:');
     !/\bCarde\.(?!io)|#carde-|cardePairings|cardeRoundLabel|cardeActive/.test(js2));
   check('carde.js is gone from disk', !fs.existsSync(path.join(__dirname, '..', 'carde.js')));
   check('the Results tab exists', html.includes('data-panel="results"'));
+
+  // The service worker pre-caches a shell list with addAll(), which rejects as a
+  // whole if any single entry 404s -- and a worker that fails to install does so
+  // silently. Deleting carde.js broke exactly this.
+  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+  const shell = (sw.match(/const SHELL = \[([\s\S]*?)\]/) || [, ''])[1]
+    .split(',').map(s => s.trim().replace(/^['"]|['"]$/g, '')).filter(s => s && s !== '.');
+  const absent = shell.filter(f => !fs.existsSync(path.join(__dirname, '..', f)));
+  check('every pre-cached shell file exists', absent.length === 0, absent.join(', '));
+  check('the cache name was bumped past v2', /magma-chamber-v([3-9]|\d\d)/.test(sw));
 }
 
 // --- 9b. overtime clock ----------------------------------------------------
